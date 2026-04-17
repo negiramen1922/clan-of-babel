@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="screen-orientation" content="landscape">
-<meta name="x5-orientation" content="landscape">
+<meta name="screen-orientation" content="portrait">
+<meta name="x5-orientation" content="portrait">
 <meta name="full-screen" content="yes">
 <meta name="browsermode" content="application">
 <title>CLANS OF BABEL</title>
@@ -403,17 +403,46 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg);
 .combatant-zone {
   display: flex; flex-direction: column; gap: 4px; overflow-y: auto;
 }
+/* ally-zone は左寄せ・カードは全幅 */
+#ally-zone { align-items: stretch; }
+/* enemy-zone は右寄せ・カードは全幅 */
+#enemy-zone { align-items: stretch; }
+
 .combatant-zone h4 {
   font-size: 10px; color: var(--text3); letter-spacing: 2px;
-  text-align: center; flex-shrink: 0; margin-bottom: 2px;
+  text-align: center; flex-shrink: 0; margin-bottom: 2px; width: 100%;
 }
 
 .combatant-card {
   background: var(--bg3); border: 1px solid var(--border); padding: 6px;
-  transition: all 0.15s; position: relative; flex-shrink: 0;
+  transition: all 0.15s; position: relative; flex-shrink: 0; width: 100%; box-sizing: border-box;
 }
 .combatant-card.is-acting { border-color: var(--gold); box-shadow: 0 0 8px rgba(201,168,76,0.3); }
 .combatant-card.dead { opacity: 0.3; filter: grayscale(1); }
+
+/* 前衛・後衛の視覚的奥行き */
+/* 味方：前衛は左端、後衛は右へ引っ込む */
+#ally-zone .card-front-row {
+  border-left: 3px solid var(--orange);
+}
+#ally-zone .card-back-row {
+  margin-left: 18px;
+  width: calc(100% - 18px);
+  border-left: 3px solid var(--accent2);
+  opacity: 0.92;
+}
+/* 敵：前衛は右端、後衛は左へ引っ込む */
+#enemy-zone .card-front-row {
+  border-right: 3px solid var(--orange);
+  border-left: 1px solid var(--border);
+}
+#enemy-zone .card-back-row {
+  margin-right: 18px;
+  width: calc(100% - 18px);
+  border-right: 3px solid var(--accent2);
+  border-left: 1px solid var(--border);
+  opacity: 0.92;
+}
 .combatant-card .cc-name { font-size: 11px; font-weight: 700; color: var(--text); margin-bottom: 3px; display: flex; align-items: center; gap: 3px; }
 .combatant-card .cc-name .cc-icon { font-size: 14px; }
 .combatant-card .cc-name .cc-name-text { flex: 1; }
@@ -1307,6 +1336,220 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg);
 .audio-label { font-size: 10px; color: var(--text3); letter-spacing: 1px; display: flex; justify-content: space-between; }
 .audio-slider { width: 100%; accent-color: var(--accent); cursor: pointer; }
 /* ===== AUDIO SYSTEM ===== */
+
+/* ============================================================
+   縦画面（Portrait）対応 メディアクエリ
+   ============================================================ */
+@media (orientation: portrait) {
+
+  /* ===== メインレイアウト: 縦スタック ===== */
+  #app {
+    flex-direction: column !important;
+  }
+
+  /* サイドナビ → 下部ナビバーに変換 */
+  #bottom-nav {
+    width: 100% !important;
+    height: 52px !important;
+    flex-direction: row !important;
+    border-right: none !important;
+    border-top: 1px solid var(--border) !important;
+    padding-top: 0 !important;
+    order: 2;
+    flex-shrink: 0;
+    overflow-x: auto;
+  }
+
+  .nav-btn {
+    width: auto !important;
+    height: 52px !important;
+    flex: 1 !important;
+    border-left: none !important;
+    border-top: 2px solid transparent !important;
+    border-bottom: none !important;
+    flex-direction: column;
+    min-width: 44px;
+  }
+  .nav-btn.active {
+    border-left-color: transparent !important;
+    border-top-color: var(--gold) !important;
+  }
+  .nav-btn span:last-child { font-size: 8px !important; }
+
+  /* メインコンテンツを上に */
+  #main-right {
+    order: 1;
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* ===== TOPバー: 縦画面向けにコンパクト化 ===== */
+  #topbar {
+    height: 40px;
+    padding: 0 8px;
+    gap: 6px;
+  }
+  .currency-row { gap: 6px; }
+  .cur-item { font-size: 12px; }
+
+  /* ===== 戦闘画面: 縦レイアウトに完全切り替え ===== */
+  #battle-screen {
+    flex-direction: column !important;
+  }
+
+  /* battle-body: 縦方向スタック（アリーナ上・ログ下） */
+  #battle-body {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+  }
+
+  /* アリーナ: 縦方向（ALLY上、VS中、ENEMY下） */
+  .battle-arena {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: 1fr auto 1fr !important;
+    flex: 1 !important;
+    min-height: 0 !important;
+    padding: 6px !important;
+    gap: 4px !important;
+  }
+
+  /* 味方・敵ゾーン: 横並びカードに */
+  .combatant-zone {
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+    overflow-y: visible !important;
+    overflow-x: auto !important;
+    justify-content: center;
+  }
+
+  .combatant-zone h4 {
+    width: 100% !important;
+    text-align: center;
+  }
+
+  /* コンバタントカード: 横画面より小さく */
+  .combatant-card {
+    width: calc(50% - 4px) !important;
+    min-width: 130px;
+    max-width: 160px;
+    flex-shrink: 0;
+  }
+
+  /* 前衛・後衛の視覚的インデントをリセット（縦では不要） */
+  #ally-zone .card-back-row,
+  #enemy-zone .card-back-row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    width: calc(50% - 4px) !important;
+  }
+
+  /* VS テキスト */
+  .battle-center {
+    flex-direction: row !important;
+    justify-content: center;
+    padding: 2px 0;
+  }
+  .battle-center .vs-text {
+    font-size: 14px !important;
+  }
+
+  /* バトルログ: 下部に固定・高さ抑制 */
+  .battle-log-wrap {
+    width: 100% !important;
+    flex: 0 0 auto !important;
+    max-height: 130px !important;
+    border-left: none !important;
+    border-top: 1px solid var(--border) !important;
+  }
+
+  #battle-log {
+    font-size: 10px;
+    padding: 4px 6px;
+  }
+
+  /* コントロールバー */
+  .battle-controls {
+    padding: 6px 10px !important;
+    flex-wrap: wrap;
+    gap: 6px !important;
+  }
+
+  #battle-start-btn {
+    height: 36px !important;
+    font-size: 13px !important;
+  }
+
+  #battle-back-btn {
+    height: 36px !important;
+    padding: 0 10px !important;
+    font-size: 12px !important;
+  }
+
+  /* コンバタントカード内テキストをコンパクトに */
+  .combatant-card .cc-name { font-size: 10px !important; }
+  .cc-atk { font-size: 8px !important; }
+  .hp-text { font-size: 9px !important; }
+  .hp-bar { height: 5px !important; }
+  .atb-bar { height: 2px !important; }
+  .ult-card-bar { height: 2px !important; }
+  .ult-card-text { font-size: 8px !important; }
+  .status-icon { font-size: 9px !important; }
+
+  /* battle-top バー */
+  .battle-top {
+    height: 36px !important;
+    padding: 0 8px !important;
+    gap: 4px !important;
+  }
+  .battle-top .stage-title { font-size: 10px !important; }
+  .battle-top .wave-info { font-size: 11px !important; }
+  .battle-top .timer { font-size: 13px !important; }
+
+  /* ===== バトル結果パネル ===== */
+  .result-panel {
+    width: 96% !important;
+    max-width: 400px !important;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  /* ===== オーバーレイ (タイトル) ===== */
+  #overlay h1 { font-size: 28px !important; letter-spacing: 3px !important; }
+  #overlay .subtitle { font-size: 11px !important; letter-spacing: 5px !important; }
+
+  /* ===== 各タブ: パディング調整 ===== */
+  .tab-panel { padding: 8px 10px !important; }
+
+  /* ユニットグリッド: 2列 */
+  .unit-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* ホームクイックボタン */
+  .quick-btns {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* ===== ログ全画面 ===== */
+  #log-fullscreen-body {
+    font-size: 11px;
+    padding: 8px 12px;
+  }
+}
+
+/* スマホ縦画面かつ幅が狭い場合の追加調整 */
+@media (orientation: portrait) and (max-width: 480px) {
+  .combatant-card {
+    min-width: 110px;
+    padding: 4px !important;
+  }
+  .battle-log-wrap {
+    max-height: 110px !important;
+  }
+  .nav-btn span:last-child { display: none; }
+  .nav-btn { font-size: 18px !important; }
+}
 </style>
 </head>
 <body>
@@ -2410,9 +2653,10 @@ const CLASS_DATA = {
       { id:'ws_will',   name:'アイアンウィル',       type:'buff',  target:'self',   power:0,    cd:7, desc:'HP+20% 3ターン', effect:{type:'hp_up',val:20,turns:3} },
     ],
     ultimates: [
-      { id:'wu_tempest', name:'ブレードテンペスト', effect:'全体🔴 Pw:3.2 強制会心', power:3.2, type:'red', target:'all', forceCrit:true },
-      { id:'wu_runebrk', name:'ルーンブレイカー',   effect:'単体🔴 Pw:5.5 + PRES-35% 3T', power:5.5, type:'red', target:'single', debuff:{type:'pres_down',val:-35,turns:3} },
-      { id:'wu_blood',   name:'ブラッドサージ',     effect:'全体🔴 Pw:2.2 与ダメ20%吸収', power:2.2, type:'red', target:'all', drain:20 },
+      { id:'wu_ragnarok', name:'ラグナロクスラッシュ',
+        effect:'前衛🔴全体 Pw:3.5 強制会心（前衛なし→後衛）+ 自身ATK+50%・CRI+30% 2T',
+        power:3.5, type:'red', target:'front_row', forceCrit:true,
+        selfBuff:{ atk_up:50, cri_up:30, turns:2 } },
     ],
   },
 
@@ -2436,9 +2680,10 @@ const CLASS_DATA = {
       { id:'vg_bulwark', name:'ブルワーク',         type:'red',  target:'single', power:1.4,  cd:4, desc:'盾投げ単体 (Pw:1.4)' },
     ],
     ultimates: [
-      { id:'vu_rampart',  name:'インペネトラブルランパート', effect:'全体物理耐性+40% 3T & 自身HP30%回復', power:0, type:'buff', target:'self', effect:{type:'rampart',val:40,turns:3} },
-      { id:'vu_aegis',    name:'エイジスバリア',   effect:'全体に被ダメ-25%シールド 3T', power:0, type:'buff', target:'self', effect:{type:'aegis',val:25,turns:3} },
-      { id:'vu_judgment', name:'ジャッジメントクラッシュ', effect:'単体🔴 Pw:4.0 + スタン1T', power:4.0, type:'red', target:'single', debuff:{type:'stun',val:1,turns:1} },
+      { id:'vu_fortress', name:'アイアンフォートレス',
+        effect:'味方全体に最大HP50%シールド + 自身に完全挑発（3T）+ 自身ATK+30%',
+        power:0, type:'buff', target:'all_ally',
+        shieldRatio:0.5, tauntTurns:3, selfAtkUp:30 },
     ],
   },
 
@@ -2462,9 +2707,9 @@ const CLASS_DATA = {
       { id:'ar_eagle',   name:'イーグルアイ',       type:'buff',  target:'self',   power:0,    cd:6, desc:'会心率+30% SPD+20 3T', effect:{type:'eagle_eye',val:30,turns:3} },
     ],
     ultimates: [
-      { id:'au_storm',   name:'ストームアロー',     effect:'全体🔴 Pw:3.5 強制会心', power:3.5, type:'red', target:'all', forceCrit:true },
-      { id:'au_pinpoint',name:'ピンポイントキル',  effect:'単体🔴 Pw:6.0 会心ダメ+50%', power:6.0, type:'red', target:'single', bonusCridam:50 },
-      { id:'au_scatter', name:'スキャッタショット', effect:'全体🔴 Pw:2.5 PRES-25% 2T', power:2.5, type:'red', target:'all', debuff:{type:'pres_down',val:-25,turns:2} },
+      { id:'au_stormcross', name:'ストームクロス',
+        effect:'ランダムな敵に🔵BLUE×10連射（1発：最大HPの6%）',
+        power:0.06, type:'blue', target:'random_multi', hits:10 },
     ],
   },
 };
@@ -4137,8 +4382,9 @@ function normalizeState() {
       }));
     }
 
-    // ultimateId
-    if (!u.ultimateId && cls.ultimates && cls.ultimates.length) {
+    // ultimateId — 存在しないIDや未設定を正規化
+    const validUltId = cls.ultimates && cls.ultimates.find(x => x.id === u.ultimateId);
+    if (!validUltId && cls.ultimates && cls.ultimates.length) {
       u.ultimateId = cls.ultimates[0].id;
     }
 
@@ -5598,7 +5844,7 @@ function makeCombatant(unit, isEnemy, enemyData, ft, pos) {
   if (!isEnemy) {
     const cls = CLASS_DATA[unit.classId];
     const stats = calcStats(unit);
-    const ult = cls.ultimates.find(x=>x.id===unit.ultimateId);
+    const ult = cls.ultimates.find(x=>x.id===unit.ultimateId) || cls.ultimates[0];
     const selectedSkills = (unit.selectedSkills||[]).map(sid=>cls.skillPool.find(s=>s.id===sid)).filter(Boolean);
 
     // 陣形ボーナス適用
@@ -5687,7 +5933,12 @@ function initBattle(waveEnemies, stageName) {
     }),
     waveIdx: 0,
     waveEnemies,
-    enemies: waveEnemies[0].map(e=>makeCombatant(null,true,e)),
+    enemies: waveEnemies[0].map((e, i, arr) => {
+      const c = makeCombatant(null, true, e);
+      // 後半の敵を後衛扱い（3体以上の場合は後半を後衛）
+      c.isBackRow = arr.length >= 3 && i >= Math.ceil(arr.length / 2);
+      return c;
+    }),
     startTime: Date.now(),
     elapsed: 0,
     running: false,
@@ -5823,8 +6074,11 @@ function combatantCardHTML(c) {
     : '';
   const atkInfo = `<span class="cc-atk">⚔${fmt(c.atk)}</span>`;
   const staggerClass = c.staggered ? ' staggered' : '';
+  const rowClass = (!c.isEnemy && c.pos === 'back') ? ' card-back-row'
+                 : (c.isEnemy && c.isBackRow)        ? ' card-back-row'
+                 : ' card-front-row';
   return `
-    <div class="combatant-card${staggerClass} ${c.dead?'dead':''}" id="cc-${c.uid}">
+    <div class="combatant-card${staggerClass}${rowClass} ${c.dead?'dead':''}" id="cc-${c.uid}">
       <div class="cc-name">
         ${posBadge}
         <span class="cc-icon">${c.icon}</span>
@@ -6396,7 +6650,11 @@ function tickBattle() {
   if (!enemiesAlive.length) {
     if (bs.waveIdx+1 < bs.waveEnemies.length) {
       bs.waveIdx++;
-      bs.enemies = bs.waveEnemies[bs.waveIdx].map(e=>makeCombatant(null,true,e));
+      bs.enemies = bs.waveEnemies[bs.waveIdx].map((e, i, arr) => {
+        const c = makeCombatant(null, true, e);
+        c.isBackRow = arr.length >= 3 && i >= Math.ceil(arr.length / 2);
+        return c;
+      });
       addLog('WAVE ' + (bs.waveIdx+1) + ' 開始！', 'trigger');
       renderBattle();
     } else {
@@ -6997,27 +7255,124 @@ function performUlt(c, enemies, allies) {
   spawnFloatNum(c.uid, 'ULTIMATE!', 'float-ult');
   Audio.ult();
 
-  const targetList = (ult.target==='all') ? [...enemies] : enemies.slice(0,1);
+  const liveEnemies = enemies.filter(e => !e.dead);
+
+  // ── ラグナロクスラッシュ（前衛列攻撃 + 自己バフ先付与）──
+  if (ult.target === 'front_row') {
+    // 自己バフ先付与（ATK+50%・CRI+30% 2T）
+    if (ult.selfBuff) {
+      applyBuff(c, { effect:{ type:'multi_buff', buffs:[
+        { type:'atk_up', val:ult.selfBuff.atk_up, turns:ult.selfBuff.turns },
+        { type:'cri_up', val:ult.selfBuff.cri_up, turns:ult.selfBuff.turns },
+      ]}}, c);
+      spawnFloatNum(c.uid, 'ATK↑CRI↑', 'float-buff');
+    }
+    // 前衛列の敵を取得（isBackRow=falseの敵）。なければ後衛全体
+    const frontEnemies = liveEnemies.filter(e => !e.isBackRow);
+    const targetList   = frontEnemies.length > 0 ? frontEnemies : liveEnemies;
+    targetList.forEach(t => {
+      if (t.dead) return;
+      let dmg = computeDmg(c, t, ult);
+      const isCrit = true; // 強制会心
+      dmg = Math.floor(dmg * c.cridam / 100);
+      dmg = Math.max(1, dmg);
+      t.hp -= dmg;
+      battleStats.totalDmg += dmg;
+      battleStats.crits++;
+      if (!c.isEnemy) battleStats.unitDmg[c.uid] = (battleStats.unitDmg[c.uid]||0) + dmg;
+      spawnBall(c.uid, t.uid, 'ult');
+      setTimeout(() => {
+        flashCard(t.uid, 'hit');
+        spawnFloatNum(t.uid, '⚡'+dmg, 'float-dmg crit');
+      }, 300);
+      if (t.hp <= 0) {
+        t.hp = 0; t.dead = true;
+        setTimeout(() => spawnFloatNum(t.uid, 'DEFEAT', 'float-defeat'), 350);
+        addLog(`${t.name} <span class="tag tag-defeat">DEFEAT</span>`, 'all');
+      } else {
+        addLog(`${c.name} → ${t.name}: <span class="tag tag-dmg">${dmg}</span> <span class="tag tag-crit">CRITICAL</span>`, 'damage');
+      }
+    });
+    return;
+  }
+
+  // ── アイアンフォートレス（味方全体シールド + 自身挑発）──
+  if (ult.target === 'all_ally') {
+    const liveAllies = allies.filter(a => !a.dead);
+    liveAllies.forEach(a => {
+      const shieldAmt = Math.floor(a.maxHp * (ult.shieldRatio || 0.5));
+      applyShield(a, shieldAmt);
+      spawnBall(c.uid, a.uid, 'ult');
+      setTimeout(() => spawnFloatNum(a.uid, `🛡️+${shieldAmt}`, 'float-buff'), 300);
+      addLog(`${a.name}: シールド +${shieldAmt}`, 'trigger');
+    });
+    // 自身に挑発バフ（完全ヘイト）
+    if (ult.tauntTurns) {
+      applyBuff(c, { effect:{ type:'multi_buff', buffs:[
+        { type:'hate_up', val:9999, turns:ult.tauntTurns },
+        { type:'atk_up',  val:ult.selfAtkUp||30, turns:ult.tauntTurns },
+      ]}}, c);
+      // 挑発フラグ直接セット
+      c.ultTaunt = ult.tauntTurns;
+      spawnFloatNum(c.uid, '挑発！', 'float-buff');
+      addLog(`${c.name}: 完全挑発（${ult.tauntTurns}T）+ ATK+${ult.selfAtkUp||30}%`, 'trigger');
+    }
+    return;
+  }
+
+  // ── ストームクロス（ランダム敵に×10連射BLUE）──
+  if (ult.target === 'random_multi') {
+    const hits = ult.hits || 10;
+    let delay = 0;
+    for (let i = 0; i < hits; i++) {
+      const alive = enemies.filter(e => !e.dead);
+      if (alive.length === 0) break;
+      const t = alive[Math.floor(Math.random() * alive.length)];
+      // BLUEダメージ（最大HPの割合）
+      const dmg = Math.max(1, Math.floor(t.maxHp * ult.power));
+      t.hp = Math.max(0, t.hp - dmg);
+      battleStats.totalDmg += dmg;
+      if (!c.isEnemy) battleStats.unitDmg[c.uid] = (battleStats.unitDmg[c.uid]||0) + dmg;
+      const hit = i;
+      const td  = t;
+      const d   = dmg;
+      setTimeout(() => {
+        spawnBall(c.uid, td.uid, 'ult');
+        setTimeout(() => {
+          flashCard(td.uid, 'hit');
+          spawnFloatNum(td.uid, `🔵${d}`, 'float-dmg');
+        }, 200);
+      }, delay);
+      delay += 150;
+      if (t.hp <= 0 && !t.dead) {
+        t.dead = true;
+        setTimeout(() => {
+          spawnFloatNum(t.uid, 'DEFEAT', 'float-defeat');
+          addLog(`${t.name} <span class="tag tag-defeat">DEFEAT</span>`, 'all');
+        }, delay + 200);
+      }
+    }
+    addLog(`${c.name} → ランダム敵に🔵BLUE ×${hits}連射`, 'damage');
+    return;
+  }
+
+  // ── 通常の必殺技（後方互換）──
+  const targetList = (ult.target==='all') ? [...liveEnemies] : liveEnemies.slice(0,1);
   targetList.forEach(t => {
     if (t.dead) return;
     let dmg = computeDmg(c, t, ult);
     const isCrit = ult.forceCrit ? true : rollCrit(c);
-    if (isCrit) {
-      dmg = Math.floor(dmg * c.cridam / 100);
-      battleStats.crits++;
-    }
+    if (isCrit) { dmg = Math.floor(dmg * c.cridam / 100); battleStats.crits++; }
     dmg = Math.max(1, dmg);
     t.hp -= dmg;
     battleStats.totalDmg += dmg;
     if (!c.isEnemy) battleStats.unitDmg[c.uid] = (battleStats.unitDmg[c.uid]||0) + dmg;
     if (!t.isEnemy) battleStats.unitTaken[t.uid] = (battleStats.unitTaken[t.uid]||0) + dmg;
-
     spawnBall(c.uid, t.uid, 'ult');
     setTimeout(() => {
       flashCard(t.uid, 'hit');
       spawnFloatNum(t.uid, isCrit ? '⚡'+dmg : String(dmg), isCrit ? 'float-dmg crit' : 'float-dmg');
     }, 300);
-
     if (t.hp <= 0) {
       t.hp = 0; t.dead = true;
       setTimeout(() => spawnFloatNum(t.uid, 'DEFEAT', 'float-defeat'), 350);
@@ -7025,7 +7380,7 @@ function performUlt(c, enemies, allies) {
     } else {
       addLog(`${c.name} → ${t.name}: <span class="tag tag-dmg">${dmg}</span>${isCrit?' <span class="tag tag-crit">CRITICAL</span>':''}`, 'damage');
     }
-    if (ult.debuff)  { applyDebuff(t, ult.debuff, c); setTimeout(()=>spawnFloatNum(t.uid,'弱体','float-debuff'),350); }
+    if (ult.debuff) { applyDebuff(t, ult.debuff, c); setTimeout(()=>spawnFloatNum(t.uid,'弱体','float-debuff'),350); }
     if (ult.drain) {
       const h = Math.floor(dmg * ult.drain / 100);
       c.hp = Math.min(c.maxHp, c.hp + h);
