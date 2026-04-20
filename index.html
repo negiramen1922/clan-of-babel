@@ -15188,25 +15188,41 @@ async function authNewUserStart() {
     return;
   }
   if (errEl) errEl.style.display = 'none';
-  const user = window._fbCurrentUser;
-  if (!user) return;
-  // 新規セーブデータ作成
-  gState = defaultState(clanName);
-  gState.presets[0].formation.slots = [gState.ownedUnits[0].uid];
-  giveStarterCardsForClass('warrior');
-  await cloudSaveState(user.uid);
-  launchApp();
+
+  // ボタンを無効化して二重押し防止
+  const btn = document.querySelector('#auth-newuser-panel button');
+  if (btn) { btn.disabled = true; btn.textContent = '処理中...'; }
+
+  try {
+    const user = window._fbCurrentUser;
+    // 新規セーブデータ作成
+    gState = defaultState(clanName);
+    gState.presets[0].formation.slots = [gState.ownedUnits[0].uid];
+    giveStarterCardsForClass('warrior');
+    // ローカル保存（確実に）
+    localStorage.setItem('cob_state', JSON.stringify(gState));
+    // クラウド保存（失敗してもゲームは起動する）
+    if (user && window._fbFns && window._fbDb) {
+      try { await cloudSaveState(user.uid); } catch(e) { console.warn('[CloudSave] failed, local only:', e); }
+    }
+    launchApp();
+  } catch(e) {
+    console.error('[authNewUserStart]', e);
+    if (errEl) { errEl.textContent = 'エラーが発生しました: ' + e.message; errEl.style.display = ''; }
+    if (btn) { btn.disabled = false; btn.textContent = 'ゲーム開始'; }
+  }
 }
 
 // Firestore: セーブデータ読み込み
 async function cloudLoadState(uid) {
+  if (!window._fbFns || !window._fbDb) { console.warn('[CloudLoad] Firebase not ready'); return false; }
   const { doc, getDoc } = window._fbFns;
   const db = window._fbDb;
   try {
     const snap = await getDoc(doc(db, 'saves', uid));
     if (snap.exists()) {
       const data = snap.data();
-      if (data.saveJson) {
+      if (data.saveJson && !data.deleted) {
         gState = JSON.parse(data.saveJson);
         normalizeState();
         return true;
@@ -15214,12 +15230,14 @@ async function cloudLoadState(uid) {
     }
   } catch(e) {
     console.error('[CloudLoad]', e);
+    throw e;
   }
   return false;
 }
 
 // Firestore: セーブデータ書き込み
 async function cloudSaveState(uid) {
+  if (!window._fbFns || !window._fbDb) { console.warn('[CloudSave] Firebase not ready'); return; }
   const { doc, setDoc, serverTimestamp } = window._fbFns;
   const db = window._fbDb;
   uid = uid || window._fbCurrentUser?.uid;
@@ -15233,6 +15251,7 @@ async function cloudSaveState(uid) {
     });
   } catch(e) {
     console.error('[CloudSave]', e);
+    throw e; // 呼び出し元でcatchできるよう再throw
   }
 }
 
@@ -15251,25 +15270,43 @@ saveState = window.saveState;
 
 // Firebase認証成功時のコールバック
 window._onFirebaseSignIn = async function(user) {
-  document.getElementById('auth-loading').style.display = '';
-  document.getElementById('auth-panel').style.display = 'none';
-  document.getElementById('auth-newuser-panel').style.display = 'none';
-  document.getElementById('auth-loading').textContent = 'データを読み込み中...';
+  try {
+    document.getElementById('auth-loading').style.display = '';
+    document.getElementById('auth-panel').style.display = 'none';
+    document.getElementById('auth-newuser-panel').style.display = 'none';
+    document.getElementById('auth-loading').textContent = 'データを読み込み中...';
 
-  // クラウドからセーブデータ読み込み
-  const hasCloud = await cloudLoadState(user.uid);
+    // まずlocalStorageを確認（既存データがある場合は優先）
+    let hasCloud = false;
+    try {
+      hasCloud = await cloudLoadState(user.uid);
+    } catch(e) {
+      console.warn('[CloudLoad] failed, trying localStorage:', e);
+      // Firestore失敗時はlocalStorageを試みる
+      hasCloud = loadState();
+    }
 
-  if (hasCloud) {
-    // 既存ユーザー: そのまま起動
-    launchApp();
-  } else {
-    // 新規ユーザー: クラン名入力画面へ
-    // Googleログイン時はdisplayNameをデフォルトに
-    const googleName = user.displayName?.slice(0,16) || '';
-    const input = document.getElementById('newuser-clanname');
-    if (input && googleName) input.value = googleName;
-    document.getElementById('auth-loading').style.display = 'none';
-    document.getElementById('auth-newuser-panel').style.display = 'flex';
+    if (hasCloud) {
+      // 既存ユーザー: そのまま起動
+      launchApp();
+    } else {
+      // 新規ユーザー: クラン名入力画面へ
+      const googleName = user.displayName?.slice(0,16) || '';
+      const input = document.getElementById('newuser-clanname');
+      if (input && googleName) input.value = googleName;
+      document.getElementById('auth-loading').style.display = 'none';
+      document.getElementById('auth-newuser-panel').style.display = 'flex';
+    }
+  } catch(e) {
+    console.error('[_onFirebaseSignIn]', e);
+    // フォールバック: localStorage起動
+    document.getElementById('auth-loading').textContent = 'ローカルデータで起動中...';
+    if (loadState()) {
+      launchApp();
+    } else {
+      document.getElementById('auth-loading').style.display = 'none';
+      document.getElementById('auth-newuser-panel').style.display = 'flex';
+    }
   }
 };
 
