@@ -1,6 +1,67 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-LJHYV9VBCY"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-LJHYV9VBCY');
+</script>
+
+<!-- Firebase SDK (CDN) -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+  import {
+    getAuth, onAuthStateChanged, signOut,
+    signInWithPopup, GoogleAuthProvider,
+    createUserWithEmailAndPassword, signInWithEmailAndPassword,
+    sendPasswordResetEmail, linkWithPopup, linkWithCredential,
+    EmailAuthProvider, fetchSignInMethodsForEmail,
+  } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+  import {
+    getFirestore, doc, getDoc, setDoc, serverTimestamp,
+  } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCOncJWXl6hLUGRqqF8GiBZ1JYiZ81iH9w",
+    authDomain: "babeldungeons.firebaseapp.com",
+    projectId: "babeldungeons",
+    storageBucket: "babeldungeons.firebasestorage.app",
+    messagingSenderId: "371364553105",
+    appId: "1:371364553105:web:a316783c1b0b4e5ece3a30",
+    measurementId: "G-1BTBY8V3X4"
+  };
+
+  const fbApp  = initializeApp(firebaseConfig);
+  const auth   = getAuth(fbApp);
+  const db     = getFirestore(fbApp);
+  const gProvider = new GoogleAuthProvider();
+
+  // ── グローバルに公開（ゲーム本体JSから使う） ──
+  window._fbAuth = auth;
+  window._fbDb   = db;
+  window._fbGProvider = gProvider;
+  window._fbFns = {
+    signInWithPopup, GoogleAuthProvider, gProvider,
+    createUserWithEmailAndPassword, signInWithEmailAndPassword,
+    sendPasswordResetEmail, linkWithPopup, linkWithCredential,
+    EmailAuthProvider, fetchSignInMethodsForEmail,
+    doc, getDoc, setDoc, serverTimestamp, signOut,
+  };
+
+  // ── 認証状態の監視 ──
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      window._fbCurrentUser = user;
+      await window._onFirebaseSignIn(user);
+    } else {
+      window._fbCurrentUser = null;
+      window._onFirebaseSignOut();
+    }
+  });
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="screen-orientation" content="portrait">
@@ -1978,16 +2039,73 @@ img.item-icon {
 </head>
 <body>
 
-<!-- ===== CLAN NAME OVERLAY ===== -->
+<!-- ===== AUTH OVERLAY ===== -->
 <div id="overlay" class="visible">
   <h1>CLANS OF BABEL</h1>
   <div class="subtitle">TACTICAL RPG</div>
-  <div class="clan-name-box">
-    <div id="clan-name-box">
-      <label>クラン名を入力してください（1〜16文字）</label>
-      <input id="clan-name-input" type="text" maxlength="16" placeholder="クラン名" autocomplete="off">
-      <button id="start-btn" class="btn btn-gold" onclick="startGame()">ゲーム開始</button>
+
+  <!-- ローディング -->
+  <div id="auth-loading" style="color:var(--text3);font-size:13px;letter-spacing:2px;">LOADING...</div>
+
+  <!-- 認証パネル -->
+  <div id="auth-panel" style="display:none;flex-direction:column;align-items:center;gap:14px;width:300px;">
+
+    <!-- タブ切替 -->
+    <div id="auth-tabs" style="display:flex;gap:0;border:1px solid var(--border);width:100%;">
+      <button id="tab-login-btn"    onclick="authSwitchTab('login')"    style="flex:1;padding:9px;background:var(--gold);color:#0a0b0f;border:none;cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;">ログイン</button>
+      <button id="tab-register-btn" onclick="authSwitchTab('register')" style="flex:1;padding:9px;background:var(--bg3);color:var(--text3);border:none;cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;">新規登録</button>
     </div>
+
+    <!-- Googleログイン -->
+    <button id="auth-google-btn" onclick="authWithGoogle()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:11px;background:#fff;color:#222;border:none;cursor:pointer;font-size:14px;font-weight:600;font-family:'Noto Sans JP',sans-serif;">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.2l6.8-6.8C35.8 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.5 2.9-2.2 5.3-4.7 6.9l7.3 5.7c4.3-4 6.2-9.9 6.2-16.6z"/><path fill="#FBBC05" d="M10.6 28.6A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.9-4.6L2.6 13.3A23.9 23.9 0 0 0 0 24c0 3.9.9 7.5 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.2 0 11.4-2 15.2-5.4l-7.3-5.7c-2 1.4-4.6 2.1-7.9 2.1-6.2 0-11.5-4.2-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
+      Googleで続ける
+    </button>
+
+    <div style="display:flex;align-items:center;gap:10px;width:100%;">
+      <div style="flex:1;height:1px;background:var(--border);"></div>
+      <span style="color:var(--text3);font-size:11px;">または</span>
+      <div style="flex:1;height:1px;background:var(--border);"></div>
+    </div>
+
+    <!-- メール入力 -->
+    <input id="auth-email"    type="email"    placeholder="メールアドレス" autocomplete="email"
+      style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px 12px;font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none;">
+    <input id="auth-password" type="password" placeholder="パスワード（6文字以上）" autocomplete="current-password"
+      style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px 12px;font-size:13px;font-family:'Noto Sans JP',sans-serif;outline:none;">
+
+    <!-- 登録時のクラン名 -->
+    <div id="auth-clanname-wrap" style="display:none;width:100%;">
+      <input id="auth-clanname" type="text" maxlength="16" placeholder="クラン名（1〜16文字）" autocomplete="off"
+        style="width:100%;background:var(--bg3);border:1px solid var(--gold);color:var(--gold2);padding:10px 12px;font-size:14px;font-family:'Cinzel',serif;text-align:center;letter-spacing:2px;outline:none;">
+    </div>
+
+    <button id="auth-submit-btn" onclick="authSubmit()"
+      style="width:100%;padding:12px;background:linear-gradient(135deg,#8b6a1f,#c9a84c,#8b6a1f);color:#0a0b0f;border:none;cursor:pointer;font-family:'Cinzel',serif;font-size:14px;font-weight:700;letter-spacing:3px;">
+      ログイン
+    </button>
+
+    <button id="auth-reset-btn" onclick="authResetPassword()"
+      style="background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;text-decoration:underline;">
+      パスワードを忘れた場合
+    </button>
+
+    <!-- エラー表示 -->
+    <div id="auth-error" style="display:none;color:#ff6666;font-size:12px;text-align:center;line-height:1.5;"></div>
+  </div>
+
+  <!-- ログイン済みの場合: クラン名入力（新規ユーザーのみ） -->
+  <div id="auth-newuser-panel" style="display:none;flex-direction:column;align-items:center;gap:14px;width:300px;">
+    <div style="color:var(--text2);font-size:13px;text-align:center;line-height:1.8;">
+      アカウント作成完了！<br>クラン名を入力してゲームを始めましょう。
+    </div>
+    <input id="newuser-clanname" type="text" maxlength="16" placeholder="クラン名（1〜16文字）" autocomplete="off"
+      style="width:100%;background:var(--bg3);border:1px solid var(--gold);color:var(--gold2);padding:10px 12px;font-size:18px;font-family:'Cinzel',serif;text-align:center;letter-spacing:3px;outline:none;">
+    <button onclick="authNewUserStart()"
+      style="width:100%;padding:12px;background:linear-gradient(135deg,#8b6a1f,#c9a84c,#8b6a1f);color:#0a0b0f;border:none;cursor:pointer;font-family:'Cinzel',serif;font-size:15px;font-weight:700;letter-spacing:4px;">
+      ゲーム開始
+    </button>
+    <div id="newuser-error" style="display:none;color:#ff6666;font-size:12px;text-align:center;"></div>
   </div>
 </div>
 
@@ -2046,9 +2164,16 @@ img.item-icon {
         <div class="hm-item" onclick="closeHamburger();openGacha()">✨<span>召喚</span></div>
         <div class="hm-item" onclick="closeHamburger();openHelpModal()"><img src="data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAE5AW4DASIAAhEBAxEB/8QAHQAAAQQDAQEAAAAAAAAAAAAAAAMEBgcCBQgBCf/EAFAQAAEDAwEEBQgIBAMFBwIHAAEAAgMEBREGBxIhMRNBUWFxCBQiMoGhscEVM0JSYnKR0SOCkuFDRIMWU1RzkxckJmNkdPElhDQ1NkWiwvD/xAAaAQACAwEBAAAAAAAAAAAAAAAAAQIDBAUG/8QALREAAgEDAwMEAgIBBQAAAAAAAAECAwQREiExE0FRFCJSYQVxI5EyFSQzNKH/2gAMAwEAAhEDEQA/AOMkIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCE+tVsqrjLuwNw0es88gmouTwhNqKyxkAScDittbtP3CsAf0fQxn7T+f6KW2iw0dvaH7u/Lji93P2dilel9N37UlUKXT1oqrhJnBMTPQb4uPAfquhTsds1HgwVb3tBEFpNIUzWg1Eskju70QtlBp62Q8qZh/MN74rovSvk0aor2sm1Bd6O1MPExQjpZP14Ae9WLZ/Jr0LSBpuNVdLi4c9+box+jcK7NtT4WTM6tWXLONxa6Af5WH+gINsoHcDTQnxYF3XT7C9mEIAGm45O+SVzj7yifYXswlbg6ZiZ3skc0+4p+opfEhmfk4OlsNslbg0kQ/KMfBa+q0jQvBMT5YndWHZHv/ddxXbybNAVYJoZLnbndRjqC8D2Oyq+1T5Md+pWOl07fqavA4iGpZ0bz/MOHuSzbz5WCSqVY8M5AuGmbhTbzomioYPu8HY8P2Wle1zHFrmlpHMEK9NXaS1JpSpMGobNVUXHAkc3MbvBw4KJXa10dxZiaP08cHt4OHtVVSxTWabNNO9fE0VuhbK82iotr8u/iRHk8D3HsK1q58ouLwzoRkpLKBCEKIwQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIQgAXoXiEAeleIQgAQhPbNQSXGvZTsyG83u+63rTScnhCbSWWOtO2aS5zb7ssp2n0ndZ7gp/Q0rIGRUlJAXOJDI42NyXE8gB1lY08EVJTNhhZuMaMNaF1Z5NmyaKz0UGsNSUwfdJ2h1JBIMimYeRI+8fcuxTpxto57nHr13Vf0aDZB5PbquKG9a83443YfFbGHBI/8w/ILo21UFpsVAykttJTUNLGMNZEwNASdfcmw+hH6UnuC0800kzt6V5cezqCFSnV3kc6rdxhtE3U94jbkQsLz2ngE0fdKuTk8MHcFrgV7vFXRtoR7GOV1Ul3HvnVQ7nO/9UCpqBynk/VNA5ZAlPpR8EVWl5HrK+rYeExPcRlOYrzI04miDh2tWqysSVF0IS7E1c1I9zdVrLTfKN9FXU8FVDIMPimYHAjwK512x+Ty2OOe9aDB9HL5La45z/yz8irtPPI4HtCfUNzfG4R1B3mdTusKvoyp7wZfTvVJ4kfPKspiHS0lZA5j2kslikbgtPWCFBdRWd9vlMsQLqdx4H7vcV3h5RmySn1LbpdVabp2svMDN+aOMYFUwc/5guR6mBlRDJTzx5BBa5rhxH7FKpTjcw+0dShXdN5XBV6E9vNC+31z6d2S3mw9oTJcdpxeGdlNNZQIQhIYIQhAAhCEACEIQAIQhAAhCEACEIQAIQhAAhCEACEIQAIQhAAhCEACEIQAIQhAAp7oi3imtvnLxiSf0uI5N6v39oUHpYXVFVFA0gOkeGDPecK0QWQwYY0NY0YaB1Acgt9hTzNyfYxXs8RUV3LY8mrQzdYa4+kK+HftVoIlkBHCSX7LfmuuLtWinaIYsB5HV9kKB+T7YY9JbI6GSWMNqq1vnc5xxLnch7At8+R0r3SPOXOOSt0IdWbk+EcC7raI6VyZbxJyTxXockso3upbcHJz3Fw5Nrpc7fa6c1NzrqejhH25pA0ezPNQTbBtJp9EUDKakYypvNQ3MUTuUbfvu+QXMGob5eNRV7q69V81XK459N3ot7gOQCgzVRt3U3fB1XVbX9ntLIYzfhMRzMUTnD4J3atq2gLhIIotQwxPPACdjme8jC47HRsxvEDsylg1jhyGFHCb5NXpYpHd9PPT1UDaikniqIXD0ZI3hzT7QvSeK4y0RrHUGj69tVaKx/Q5zLSyOJjkHYR1eK6v0Hqm36y05DeKD0CfRnhJ9KJ45tKMOPJmq0nHc3ZWJCyKx8FIz4NhZ6wxSCnkOY3ernqK5W8p/QrNLa2F4oIdy23fMgDRwjmHrD281034KObeLGzVWx+44ZvVdvAqYuHHLOf6jKy1F05qS7nRtKja0s4O1tQNmthqWt/iQceA5gnBHz9igitmeNlRSuY8EskaQ4dxHFVVUROhnkheN1zHFpHYQsN/T0zUl3PQWNTVFxfYTQhb/Rek7zqq5MpLXSue3PpykYYwdZJWFJt4RslJRWXwSvYvouk1LFdqm5gtp2QGGFxHASuBw72cD7VALvQVFsuVRQVTNyaB5Y8d4XT+ntP02n7LDaKdxaIQS9/IyOPMqJbTtnr9SxtudmDfpONmJI3HAnaBwwepw7+a0So+1Y5OZSv06z1PZlBITm5UFbbat1JX0s1NO3myVhafemyzHUTT3QIQhAwQhCABCEIAEIQgAQhCABCEIAEIQgAQhCABCEIAEIWzmsN1i07DqGSjkFtnndTxz49EyNAJHvRjIm0uTWIQhAzZ6WiEt8pwRkNJd7QCR8FZlmpDX3igoMZ84qY4iO4uAVdaMGb2w9jHH3K0tD1ENJrWyVNS4NhjronPJ5AbwXWsVik2cq+fvX6O5ryW0lHRW2PgyGNrcDsAwEwB4LG9VInubpGODmFo3SORCREnDmulQhpgjzNxPVUYvvdSTqqmOkpJquY4igjdI/wAyvA5Rfa7Xmh2bXqVhw50HRtP5iArJcFcI6mkcu6tvFVqPUtdeap5e+olJaD9ln2QPYoLrC9voSKKkduzuGXvH2B1Y7ypY1uGADwVTXqoNVdamo6nyOI7hngubf1XTgku56WwoqUt+EN3TSucXOkeXHmcpeiuVdRyiSCpkYR1Z4HxCaIXGTaeUdlpNYZaumrqy7W8TDDZW+jK0dR/Yq7PJhvElFrOpsznnoK+nLw3PDfZ1/oucNm283z1/Hdwwe3j/dXZsFc921eziMffLvDdXft6jqUU5Hnb6lGE5RR1e48VjvLBzxvHxWJd+q0pHEyLB3BOqVram23KgeAWT0z248WkLXhxTq2SBk0rieAicT+iprxzBl1CWJo4Vq4RDU1EGOEcr2D2OIVV6mYY79WA9chd+vH5q2bm8Oula8cjUSEf1FVXrAg6iqiPwj/+IWP8gv44s9F+Pfvf6NQpfs315dtG3EOppTJRSHE9OeTmnnjsKiCFyU3F5R1JwjOOmS2OyYp6G/6fpbtZpuliqGB2SOLT1g94UQ2oa7p9F22Klt4imu07S5oIyIgftEfAKu9hmv49Nx3C13SVxopIzLCDybIByHj8lXeprxVX291Nzq3l0kzycH7I6gO4LVKt7crk49H8dis1P/Ff+mN/vVzv1wdX3askqqhwxvvPIdg7B3LXoQsjeTspJLCBCEIGCEIQAIQhAAhCEACEIQAIQhAAhCEACEIQAIQhAD6w2quvV3pbXbaaSpq6mQRxRMGS5xK7nuux6hn2Bx7P43N88ghE8MxH+a4uJPcSSPAqlPJG1xoOw3dtru9ngobxVHo4btJIXBxJ4Mwfq89o5rsGZzGNMsj2tYBvFxPADtXRtaUXFvnJ5f8AM3taFaMIrCW/7PmDfLVX2W6VFsudLLS1dO8slikbgtITJXt5U20nSOsbsbdYrHTTzUjtx15JIfJgnLWgc295z3KiVhqRUZYTyehtqk6lNSnHDH9hrBQXSKd+ejzuvx908D+6sWMNlja9jg5rgCCORHaqrW1st9rbYd2Nwlh/3T+Xs7Fptbno7S4K7m3dXePJfGl9pWsLDTspYa1tXTRjDYqlu/ujsB5hS+k26XdrQKmwUjz2skcFz7R61onDFVSTRHHOMh/xwthHq6xuHGWRn5oj8srqRvKTW0jkVLCTe8C+n7drju/w9O0wP4pnFRbW+0vUOrLcbZUxU1LROcHOjhacuxyyTxVXyausbRls739zYnfPCYVuuKRoxR0k0hI5yEMwfZnPuTld0VzIULCedokiuVWyhoZaqRwAjaXeJ6h7TgKonHJJWzvl8rrs4CdwZEDlsTODQe3vPitWuRd3CrS24R2bS3dGLzywS1HTT1dQynp43SSPOAAEvabZVXOo6KmZkDi959Vg7SVO7Naqa1wlkHpyOGJJiMF3cOwJW9tKs/ode5jSX2K2OgjtlA2nYQ5+d6R4+079gr98lTTc093r9WVEZbT00Zp6dxHBzz6xHgFXOy7QV215e20lGx0NvicDV1ZHoxt7B2uPYuuqS3W7TWnaaw2mEQ08DAxrRzPaT3ldqMVFKnA85d1uW+WedLkk9696Qc02DkF3etmk5KHQf3prfLiy2aZvFxkcGtgopDnPXukD3ledJ3qsvKO1K22aMjsMMmKq6PG+AeIibz/UqupH24L6GXNJHPG+XNLz6ziXHxKqy+y9PeauQcjK7HhlWHeKzzS1zz72CyM7vjyHvIVYE5OTzXH/ACM/8Ynqfx8MZkeIQhcw6QIQhAAhCEACEIQAIQhAAhCEACEIQAIQhAAhCEACEIQAIQhAAhCEAetcWuDmkgjiCF0lqDbJV1nky0tE2sJvdRL9G1Dw70xG0ZLv5m4Ge8rmxe5ON3Jx2KyFRwzjuZ69tCu4uXZ5AnJyV4hCrNAIQhAAhCEACEIQALbaess11m3iTFTMPpyYz7B2lN7HbZbnXNp48hvrSPxwa3tVkU1PBR0rIYWCOJg4D5ntK2Wlr1nl8Ix3Vz0lpjyeU9PT0dM2CCNsUTert7yesq1dkexy76wdFdLwJbZY85DiMS1A7GjqHepTsD2PMrmQat1fT4puD6KhkHr9j3js7Arzut2awea0Qa1rRu+iMBo7Auut/ZTWxwK1fTu+RK3Uln0tZ4rRZaWKmgiGGxsHM9pPWUxlmfK8veckpHfLiXOJJPWvd4BaqdNQRy5yc3lmW8vC5eZTK9XS32W2y3K6VLKemiGS53MnsA6z3K3JHS3sj29XaistqqLpcphFS07d5xPMnqA7SVydrrUtXqzU1TeavLWuO5BHnhHGOQW62o66rtZXAMaHU9pgcfN6fPrfjd2n4Ks9SXdttpyyMg1Lx6A+7+IrLXqqC1Pg61latP7Zp9b3HpJW2+J2WsO9Lj73UPZ8+5RhZPc57y95LnOOST1lYrzdWo6k3Jnp6VNU4qKBZtjc4ZAWCXhmDWbpCrJsRIIOCvFk9284lYoGCEIQAIQhAAhCEACEIQAIQhAAhCEACEIQAIQhAAvQCTgDJK8W+0XSNnuD53tDmwtGM9TjyPuKnCDnJRRCc1CLkzWfRtxxnzGpx/yymrgWnBBB7CrRLRjjgJtV0NNVNxPTxS8MZc3j+vMLdKwePazHG+8orZCmNVpajkyYJZYCTyOHtHdjgfetbPpavYT0MkMo6vS3T7/3WWVtVj2NEbmnLuaBC279OXhgyaUEfhkafgVg3T92ccCjd7SB81X0p+GWdWHlGrQt2NLXkjPm8YH/AD2fushpS8n/AAYv+s391Lo1Pi/6I9en8l/ZokLf/wCyN66oYv8ArM/dIz6YvkLd40D3j/y3Nf7mkpOjUXMWCr03xJf2aZCVqaaopn7lRBJC7se0g+9O9PUgrr1S0zwTG6QF+Puji73AqCi28E3JJZJxpK2toLREXN/jTgSyHuPqj9OPtV1eTvs+Zq7UTrvdId6z214cWkcJpeYb4DmVV/Ej0RlzvVA7TyC7N0DaodF7Mbbb2NAnMIklPW6R4yT716HR04KnE83XrNtzfc2mormGf9zpsNa0YO7wAHYo+HdhWMj3OcXvOSTkrHK306ahHCOPOTk8sXa/tWYJJ5psHFQHartEbpphtVp3ZbtI30nHi2nB6z+LuTew4QcnhEl1zrezaRpC6sk6etcMxUkZ9N3eewLnbWurbxq24ec3ObETD/Bp2cI4x3DrPetNXVVTWVUlZWzyTzyHefI85JKjt4uNxkDqez0U8zxwdKyMuDfDvWWtWjTWWdS3tcvY91Je4bbEY2EPqXD0WdQ7z+ygFTPLUzvmmeXvecklbs6V1DUOM0lN6T+JMkzQT45OVkNG3rrjhH+q1cSu69eWXF4O5Q6FFY1LJHUKQu0fehyhiPhK390m7Sd7H+XjP+sz91n6FT4v+jR16XyX9miQt2dLXsc6Vn/XZ+6Bpe8Z9KGNo7TMw/ApdGp8WPrU/kjSIUlg0jUE/wAerjaPwNLvjhbWi0xQQOa6Rr53Af4jvRz4D5kq2FpVl2K5XVOPchMME079yGJ8juxrclKz0FbBH0k1LMxg5lzCArJjgggj3GNjjb91jQ0foFhUwxzQuY5oLXDBHaFp/wBP253M/rt+NisEJeugdTVckLubHEJBc1rB0E8ghCEACEIQAIQhAAhCEACEIQAIQhAAppoSAMt803XJJj2AcPiVCwrI09AILLSsz/hh39XpfNbLKOqpnwZLyWKePJdnkqaSt2qNa3J95oIa2ho6LDopW7zS55wPbwVvaq8nDRFzLpbTJW2aY8QIX78efyu5exa/yLLT5voq7XlzMOra3cYfwsGPir7e5jG7z3Bre0q+pUet4ZypZXByFqPyata0LnPs9xt90jHIPJif8woJddlm0e1k+d6TrnNH2oQJAf0K75YWPGWua4dxWYCauJIEz5zVGndRwHdn09dYyPvUb/2ScdlvjjhtjuRPYKR/7L6NuiY71mNd4heCCEcoox/KFL1b8Bk+edNpPVs/1OmLs/8A+0ePiFsYdn+vXjLNI3Ujvhwu/Q1oHAAeCyR6uXZC2OAptD64p270ukbsAOZEBPwWoraauoDu3G2VtIf/ADqdzPiF9FOBTeroKKrjLKmkp52kYIkjDs/qmryXdC0pnzrf5rVRdG8RzR/de0Ob+hTCnslpoql1bTUzo590tG6/0BkYPA8feu4dYbENn+omvk+iW22qdynoj0Zz2kciucds2yG6bPII7iLnHcLVNKImPI3ZWOPIEcj4hWwq0qsllbjWqKai9iF6Mpm12sbNRuGWy1sQI7t4H5LsPWFQPO4qVpw2NvJcjbLnD/tI09nl56z5rqPUMvSXmoJPI4C3Qjmpk591LCwIb3Yj2pEPIWQctTMaErzXx2uzVlykxu00LpOPWQOHvXKtbUz3Gunr6p5fNUSGR5PPJV+7bK11Ls/qY2HBqZWRHwzk/BULbKGsudwp7dbqZ9TV1DwyKJg4uJVVRpcm21jtlGER3CSA0kjHEZXvStyGZLieTRxP6LovZ75NQfFHW61uL94gHzKkdgDuc/mfYrs0zs+0bpuJrLRp+hhc0fWGMOefEniVzKl7TT9qydFUHjc4ft2m9TXEA2/Tl0qGnk5tM7B9pGFuodmW0aVm8zSFfjvDR8Su6mNZG0NjY1g7GjAQXd6pd9N8IOlFHCFTs12iQDMmkLgB3NafgVp6zSerabIn0vdmf/aPPwC+g28F4cHgQCEetn3QtMex855LLfQ7BsVzB/8AaSfslqXSurqtwbS6YushPLFI8e8hfQ10cZ49Ez+kIDccgB4J+rk+wspHDNl2KbTrs5u7p8UTHfbq5QwD2DJVjaX8mGreWS6n1KGN+1BQx8fDed+y6gLSkpZoIRmSVjfaoO4nLgWpkD0bsg0DpdzJKKxRVFS3/MVX8V+fbyXH21mzmxbTNQWrc3Y46xzowBj0HcQvoC0AgObxBGQuRPLEs/mO0ykujW4ZcaJpJ/Ew4Tt5tzwxrONzljWEJjuhf1PaD8vktIphryAmnhnAGGvLSfEcPgVD1huYaKrR2reWqmmCEIVBeCEIQAIQhAAhCEACEIQALOKOSV4ZGxz3HkGjJKVt9K+sqmwsOM8XHsCmdvpoaOERQt3R1nrce/tWihbur+iitXVP9kXprHc5iMUpaOsvcG49h4qwuDIcDgAFnFarm2kNY+3VbKYc5XQuDR7SE4tVE+43egt0YJdU1EcIH5nALqULdUU2c2tXdVpM7g8nu0Gy7H7DTObuySwdPIPxPOVML07/ALu2PPrOStspWUFspaFgAbTwsjAHcAExu8maljAfVaslNap5M82NYyWn0SR4FOY6moHKZ3tTZpHJKtWpxT5KMsc+d1JH1nuXoqJ3c5HJFgSrG5VbjHwRcmZB8h5vcfasgHdZP6rJreCyaFW2iG5iN7qcf1SrJJW/az4oDVkBwUXgabRm2oP2m/oqa8sOB9RssiqIwS2Cujc/uByMq4sLT6z0/Ran0zX2KuGYKuIsJ62nqI8CiGIyTJxqyWzODtGV8Nt1dabhO7chp6tj3u7G54ldOVd6tNdWSVNLdKOWOQ7zS2dvEfqua9oei77oW8S269UkohDiIKtrSYpW9Rz1HuUZEsf2ZseBXYp1FnUiNWgqp102tpP+Lp/+q391n5/QM4vrqVo75m/uuRmTj/inf1lK9M0jjUk/zFXdbJT6THcvPbld7TU6Uioqe4U09UalrhHFIHEAcycKN+TXA6o2zWXdbno+kkPcA3+6rBksbpAxjjJI44a1oy4nuC6i8lPZzcrQ+bWN9pX0k88XRUUEgw9rDzeR1Z7FkuqqUH9mmjT6Z0XJKxg4nim0lS/7DceKxLePFYloXHjFIvnWk+BN8krubyknbx5uKWLVg5pVqwjM22NyXDrP6rwyyj1ZHD2pV7Uk9qsWGLLMTV1LeHSFYOq6r/elDwEk4YVijHwNSZjJNM8HelefakXNyOPFKOWDuXNTSS4Gmb22P36GM9YGCqM8tO0ecaOtF7YzLqKr6N7vwvH7hXTYpP4MkefVdkKL7fLR9N7I7/SBm9JHT9PGPxMOfhlZF7Kppi8nAOpqF9fbHRRY6QEOaCcZI/tlQqayXOJu86lJH4HBx/QHKsRzt6JpHWFhdrTdbe0SV9tq6ZjgCHyRENIPfyWuvaxqvUX0LmVJaSrXtcxxa5paRzBHJeKY3ihjrYSSAJWj0X9fge5Q97Sxxa4YIOCFya1F0nhnUo1VUWUeIQhUloIQhAAhCEACEIQBIdKRYjmmIHpENHs4n4hXF5P1jp7xrd1RVwtmp6CHpd1wy0vPBqquyxCG3xjrcN4+3iujfJntvm+l666vbh1ZUbrD+FvD4rt2UMRSOPdTzJs3e32uFNoynt8ZDTV1AyAMei0ZUD8nqzi87YrJE5m9HTPdVPHcwfuVsPKDuHTaiobc08Kan3nD8Tjn4KX+Rhaem1Hfb69vo00DaeN34nHJ92FpuZYgzJTOonYJytBVv6SrkdnhnAW6lfuxufngBlaBhycnrOVhoR7kZsVYEswJFiXYrpFQqzASrAk2JZgVMmIUY3ISu5gZwsYwlwQWY61RJtEoxTEg1ZbqyAXuEsj0mOFiWrMgrx+ACSQAOOT1ITIuIyudvoblTOprhRwVULuBZKwOHvVJ7Ro/J+0rM9l5s1plrRxNNRwh8me8DgPaVF/KB23Vc9ZUaW0XVGGGMmOruDD6TzyLWHqHeufKK3V9zuAp6Omqa+smOd1jS97j2n91spUJNansicI45LaqdoOxdkxFJsm6ZgPBz5Gtz7MFbSya/wBhE0zWXLZmaFp5vaxsoHs4KMWjYNtDr6YTyUdFQBwyGVE+H+0AFa7U2x/X+n4HVNTZxW07Bl0lG/pMDvHNW9OD2yT1xydX7MI9k90h880TRWUvaMubFC1srPFp4hWHwxgL5w2K5XCy3OO42msmoa2B2WvjcWkEdRHyK7H2B7V4de2x1uuW5BfqVgMzBwEzfvt+YWavbyh7k8obZapXmEe1CzFZ44BYEJReFNMTQg9qRc0YTh44pF4VkWRaG72hJPCcPCQerosBB4wknBLvSL+auQDmzSbtYW9T2raXCmjrbfUUUgyyoifE7wcCPmtFTSdHVRP7HKQ545WWvHEi6DPnNfaF9uu9wtr2lrqaokix2YccLpbRE1NqHZ7bDWRsnjlpRFK143uQwVUXlHWn6H2xXpjW7sdWW1TOz0xx96mvk93Dp9IVNC52XUlScD8LuK6dBqSQqnk5+1dbH2bU1ytTm482qHMaPw54e5V/fouiuLyBgPAcPn78q+fKRtnmevI69rMMr6drs/ibwKpTVMP1U4HL0CfePmuffQ9v6OjZT937NEhCFyDqAhCEACEIQAJWljM1THEDgvcG58SklsLDEZK9rsZDBvfspQjqkkRk9MWyT8Gx+iMcOAC642bWv6I0VaLfjD2wNc/8zuJXLujrc67artduAyJqlm9+UHJ+C62uFTHbrTV1ZwGU1O5w7sDh8l6ShHCycGu87HPW0e4/SWuLrVB2WiYxsPc3gumvJJtP0fsqbXPbiS41T5icc2jg33LkOokkndJJzkmeT4lx/uu+9nVqbY9B2S1NbjoKKMHxIyfis13LZIS2ibe6SblE7tdwWoj8E+vb+EUftKYx8lGksRKJcjhnFLN5JGPmlmYRIixZiVbxSTMJZipkCFmcko1YNxhKMVMiSMgvV4vVEke4VS+VBrSbSuhPMLfL0dxuzjBG4HiyPHpu/Tgrb4YXJPlgV8lRtJoqAuPR0lC0tHVlxySrbaCnUSZLsU9Y7RV3e6UtqoIzLVVUojjHees/Fdh7PdEWHZ5YGxxsjdWuaDVVjwN+R3WB2DuVI+SxboqraFUV0zQfMKQvZnqc44yrk1JcX11c/wBI9EwkMHzXW6bqz09kY7ippWDa1mq4mPIgp3SD7zjjKyodV00rwypidBnhvZyFEHnJwkncFs9JTxg5/Ulk0/lAbMKC7WibV+m6eOO4QN6SpjiGG1DBzOB9oLn7SF/rdM6iob/bpHMmpZA8gH12/aafELrnRtwIqHWyoO/TztLQ13VnmPauR9Y0LbZq272+MYZT1kjGjsGVjdNwbps6NtV1rc7/ANN3amvtgobxSODoKuFsrMd45LYqpPJMuElbshpYZXFxpKiSFuepoPAK3Fxpx0yaNLW54sSFkV4VEQm9IvSz0k/CnEQg8JF6WekH4V8RCT0i5LPSL8ZV0RYEX8BnrBypFC7pIWPzzAUefyK3VoeH0LR93gq662TJwOafLStHR32wXxjcCeF9NI7tLTke4qEeT3X9BqautznYbVU++0fiaf2KvjyuLQLhsodXsZvSW6qZNnsaeDvkuXtm9cLbru1VJOGOmET/AAdw/ZaLOXt/RZJZRYflMWzznSVHdGNy+jqN1xH3X/3C5uvUXTW+UAZIG8PZx+GV2TtHtQu2iLxb8bznU7nM/M3iPguQXt3oix44EYcPipXUNWV5LbaWnH0QhCzmY6OV0bxhzTghYLzh3gQhCABCEIAFINMxEQSS/edgez/5UfUttMZit0LTz3c/qc/NabSOan6M9zLEC0vJ5tvnmuZK5zcsoacuz+J3AK3dr1d5js/rQDh9S5sDePacn4KK+TdbfN9L1t0c30quo3Wn8LeHxWflA12IbVa2nmXTvHuC9DBaYHFnvMgezq1G969sNqa3InrY94fhad4/Bd+bobhjRhrRgeAXIHkn2n6Q2rNrXN3o7dSPlz2OdwHzXYGeOSFzbh5mSktjTXZ+/XEdTQAkWdywlk6Sokf2uKzZhXxWIpFD5F2pZnJN2FLsKrkRY4YlmpvGeSWaVVIQ4bySjUiw5SrDhUyJCjVksAV6q2SyZArkjywaJ9PtNo61wPR1VC3dPe04XW2QFTXlXaPm1FoZl4oITJW2hxl3Wji+I+sPZzV9tLRUTZLOdinPJnukdFrWuo3uDXVtC5seetzeOPerVmeQ4+K5Zsd1qrXc6W6UMm5PTvD2Ht7QV0NpfU9v1NQNqqSRrZ8fxoCfSjd18OzvXfoY1N+TnXUXyblz+KxLu0rBxQAXcAtaMI/ssgjukEriA1jt5x7AOa5f1jXtuerbvcGcWT1cj2ntGVbe0zWdPZ7ZPardO2W51DDG8sORAw88n7x7FTditVZfL1R2W3RulqquURMAGcZ5nwHNYq7WrUdG0g0ss658keifS7I4Z5AR51Vyyt8M4Ct9afRlkg03pa3WOmA6OjgbHkdZA4n9VtwV56b1SbNjeWerwr3KwJ71ERi9IvwlXnCReVZFCYk/kkHpV55pB7lfEBN+Ei5KvKScVagE3LY2B43ZY+w5C1xTmzP3a7d++0hKqswZKPIjtNtTb5s8v1rI3jNRSbo7wN4e8LgKllfA+KYZEkLw7wLT/ZfR4tDwWPGWuBaR3FfPnXtrdZNcXy0ubjzetkaB3E5HxUbSWG0XtbHS9tqY7haqWpyHR1MDXHvBbxXImsrcbTqu6W1zcdBUvA8CchdI7Hq812gKEudl9MXQO9h4KofKKtvmeu2VzW4ZXU7X5/E3gVvqrMUyultJoozUEXR3FxAwHgOHwPvC16kGqIswRS8PRcR+o/so+vOV46ajR3qMtUEwQhCpLQQhCAFqOLpqqKL77gFMMbseGjkMAKN6djL6/f8AuNJ+XzU50nQOuup7ZbmjPTVLA4dwOT8F0rGOzZhu5bpHTezm2C06JtNBjD2wNc/8zuJVT7Yq3z3XVTGDllKxsI8QOKvNrmQMJ4COJufANH9lzNe6t1bd62tecmWZ78+1dmeySOYt3k6M8jC0dHZr9fXt41E7aaM9rWjJ96v6pf0dLI89TSoF5O1nNm2Q2WJzd2WpYamTxecqaXqTcoS0fbcAuQ3qmSkaVnjzSzEg3OEqzxW1lDQ4aeKWjKbtKVYVW0RY5YUs08E2Y5KsPFVSQhywpVpTdrko1ypaDI4aQQskiHcVmHZVbQ8mawlYySN0b2hzXDDmkcCCssheIwJtnKW3nYhXWiuqNSaPpX1VukcZKiijGXwHrLB1t7upUpbKyoo6oTUs8tNURnGWktc09hX0Y4EHKgWudj+htXyPqK21ilrXc6mlPRvJ78cD7Vso3bhtIkvdycr0m0PVEMYa6pp58fakiBP6prdtcamr4nRSXEU8ZGC2BgZn2jip/r3Yrb9O3ZtHSX+skjfHvjpGNJHdwWz2cbCLJqGmmrLle7g5kMu4Y4g1u9wzzxldB3SUNXYpVOGrHcoamgrLncI6G3U01bWTuwyOMFznE/8A+5rrHyeNkX+xlP8AT19ayW+1DMBo4imYfsjv7Sp3ofQOk9Gw7thtMMEpHpTu9KV3i48VK8Lm17l1NlwXcbI9RjqWJKCVlEelYuK8c49qTc7vTSGePOUk4r1zkk93erYoR49IP5rJ7kk5xVsUBg84STsrNxyUk8q5DR4eBXtLJ0dXE/scEm4rAnHFNrKwNErzxXG3lYWn6N2uz1bWbsdxpWTjvcODveuxKZ4lp45B1tC568ta071t0/fmN4xSvppD3EZHvyslF6aiNC3RCPJ6r96guttLuLHtmaO4jBSXlK27p9NW+6tbl1LUdG4/hcP3Ub2IV3mmt205OG1cDo/EjiFam0y3fS+hLtRbu8/oDIz8zeP7rrYzBoqzieTkm7RCaglbjk3I9nFRFTQekziPEKIVUZhqJIj9lxC4N7HEkzsWksxaEkIQsRrBCEIA3+mot2F8pHrHA9itryf7f53rp1a5uWUNO5+exzuA+arK2R9FQxM693J9vFX15Otu6DTtddHNw6qn3Gn8Lf7ruWUMJI5NzPMmyf62r/o/SNzqQ7DuhLG+LuC5+tlI+vuNJQRgl9TOyEfzOAVs7a63oNMU1GD6VTUZPg0KN+T7afpja5ZIXN3o6eR1TJ4MH7kLZXlhNmWB2raKNlvtVHQRgNbTwMiA8AAmOoX+nFGDyBctuTk+1R+8Sb9xf2Nw1cygsyBsag8EowpLKyBW0raHDSlWOTVrkq13BRaKx00gpVpTRr8DmlWvCrcRDtru9KNcmjX560o157VW4kcjoOWYcmzX9iza5VuIJjkOXu8kA5ZB5ChpJIWDkqCM4TUPyR4pcO9JRkicSnttTv8AxVEOynHxW92In/6BXcf8z8lHNtb/APxcwf8Ap2qQbEHZsFf/AO5HwW6f/XiZ1/yssEHklS5N95Zl6xtF6My5Yl/esC5YOcmoiM3P70m52Vi5yTc/vU1EWTJzgknOWLn96wLx2qxRDIOPck3uQ5/YkXOyrFEYOKTceK9c5JucpokgJwsMoJC84YUhm/ssm/QgE+oSFAvKatBvGxy77jd6WjLKpnDj6J4+4qY6flAfNETzAcE6vlCy6WSutsjQW1VPJEQfxNIWGa0zLIs+fula80GorbXtOOjqGEnuJwfium5AyZjmuwY5GkHvBH91yvXU0lDXVNE7LX08z4z4tJC6T0tW/SGmbbWA5MlO3PiBhdei8ojNHLGpaF1s1Fcbe4YMFQ9uO7PBQq/xFlcX8MPAPyVzbe7b5lr19S1uGVsDZQe1w4FVRqWLegZKB6ruPt/+Fy76Htf0dG0l7l9kfQhC5B0gStJH0tTHH95wCSWxsEW/Wb33Bn5KUI6pJEZPCbJHndjJ7l1Bs6t30Voi1UZGH9AJH/mdxK5v03QOumoLdb2je6eoY0juzk+5dYMjazciYPRaA0DuHBejto43OLVeSott9b0uoKShDvRp4N4jvdxU+8jO1CbUV7vj28KaBtPG78Tjk+7CqDaDVGt1lcps5a2Xcb4N4Lp3yTrObdstFc9m7Jcap82cc2jg33Kq6l7SvhFwB2MnsUTnm355HOOCXHmpTkhYOjid60bHeIWanPQ8leckXD+8LISDtCkvm1KedPH/AEr1sFO0+jBGP5Vb6j6E2R6Muf6rXHwGU8hpKqTlEQO13BbkEDgGgeARI8RsL5HBjRzc44Cg677IWBlFbn85JQO5oThlHA3nlx7ytLdtbaQtWfpDUtshI5t6cOP6DJUVuO3HZ1SOIZdp6sj/AIencfjhQzOQtJZDYYRyjCy6KPHqBU9L5Q2jWnENvu8vf0TW/NEflDaUccOtF2aO3DT80dOp4HpLg6CPqGF4ac/Zd+qrS37dtB1DgJpLjSE9ctPkD9CpdY9daQvZAtuoKGV55MdJuO/R2FFqceUGlG6c17PWaViHg9adb2RnmDyPak5IWu48ihS8icfBjG702+KcNPpc00bG9kg6wOtKh3pexKSyCeCmNt0mNZNH/pmKQ7DZM6er/wD3XyUS24yf+NsZ5U7FI9hT86duBz/mvkt0o/7eJlz/ACMsrfWZkTQP4YTmKMuGXnAWWSS5LovIb+eA5lZNikdzGB3pVga3g1qJ5oqeJ01TNHBE3m+Rwa0e0qtz8FyiYinb9pxKzEMQHqgqJXjafoO1Oc2p1FTSyD7FODIfdw96jVZt80RCSIKe61OOsQBo95Qo1JcIeEWiYov92P0WJpqdw4xgeCqA+UNpYHjZrsB24al6bygtEPIE9PdYPGAOA/QqXTqeCLRaUluhd6jnN96azWycfVvY/wByitr2xbO68hrdRRQOPJs8bmfLCltsv9lubQ63Xehq88hFO1x/TOUapxDBr5qWqj9eF+O0cU1e4t4OaR4hSveI7Vi4Md6zGnxCsVw+6HgiQfx5r3ez1hSg09M7iaeP+lApaQcfN4/6VP1P0NRyaOzv3bjHg+sCFImjDh3FeRxxM4sjY09wSgBzyWerU1vJYoYOGdvllNk2uX2ma3dimmFTGPwvGVOdjNV5zolkBdl1LM6PwB4hPvLOshg1HZb81hDaqB1PI7tc05HuUT2D1fG6UJPUyUD3FdC1nmKCaEvKQtvSWW23Voy6CYwvP4XcveqFusfS2+Vv4Sf04/JdU7Ubf9K6CutMG5eyLpmeLeP7rl44dHyyCFG6hnK8ltCWnDISeBQlayPoqqSP7riEkvOnbBb7TsWKd0hHFzvcFoVKrY3oqKJp+7/daLWOahRcSxAsnYNbvPNdtqnNyyigdLnsceA+a6D3gwOkP2QXfoFVfk528RWS5XVw9KomETD+FvP3qxtQVIpNP3CpJxuU7/eML0NJYhk5E+Tnu4v6e4VMxOd+Vzvet9p7XutLBSR0ln1HXUtNF6kLX5Y3wBUepI3VNVDCPWmka39Sr2qdE6ZmgYyS1xNe1gBcwlpJxz4KibjwxpEXt23raRSBoluFHWAdU1K3J9oW/o/KS1SwAVVhtM/e0vafitdWbNLG8kwVFXB3B298VrJtmMef4N3eB+OIFV6ab7CcUTIeUtd93/8AStDvf892ExrvKO1bMCKSy2mmPUTvvI/UqMN2ZOB43gY7of7p1T7NKMHM90nd+RgCNFNC0obXbbVtHuALfpwUjT1U0LWe/mohddRX+7PLrnfLhVk/7yocVZlJs/07DgyRzzkffkOPct1QaeslHjza10zCOvcBKacI8IMFH0tvq6p38CjqJyetsZd71u6LSGoqgDctUrR2vIarraIoWj6uJvsaFg+5W6L6yvgH8+fgn1H2QYKuptn2o3gF0VNH4y/2Tn/s81C0cPNHf6n9lYv+0FlbwNew+DSsm6isrjjz5o8WlLrTDQisKnRepIBk2/pQP928FaaroaujfiqpJqdw63sLferygu1rlP8ACuEBPYXY+KduZBVRlrmxTsPMcHBNV33RF00VNpTaBq3TT2/Rt3mfAP8AAnPSRn2Hkro0Pt0s1zcyk1HT/RVSeHTNy6Fx7+tqhN90LZ64OfSNNDOeuP1Ce8KuNSadulkefO4d+A+rMzi0+PYm406v0ytpxO1IamGqp2VFNNHNC8ZbJG4Oa4dxC8a7iuOtBa/1Do2rDqCoM9ET/Fo5Tljh3fdPeF07s/1nZ9Z2sVltl3JmYE9M8/xIj3jrHeqJUXAqkVftyf8A+OSP/TsUo2DcdOXA/wDqv/6qJbdDjXbuP+Wj+Clvk/je07XZ5edfJaZP+BGZL3ssqmZj0nDwSV8vNrsVvfX3iuho6dv2pHYJ7gOsqH7UdpNr0XTGmjDa27vbmOmaeDO956h3LmfVeo71qm5Or73WvneT6EYOGRjsa3qWaFKVR5fBoisFua02+VEj5KXSNC2KPl55Uty497W8h7VUd+1Ffr9OZrzd6qscfsvkO6O4DktnpjRN0u4bNM3zKkP25B6Th3BWLZNJWW1AGKlE8w5yzDeP9loSp0+EWqMmVFQWS61uPM7ZUSA8nBmB+pW3h0LqSUZNLFFn78o+StueqpaduJaiGIDqLwPcmE1/s8frXCI+GSk60nwiaporWTZ/qDHOk/6n9kwqtC6jjBIpYpfyShWg/Ulk5efN/pK8bfLRIcNr4c9+QjqyHpRS1dp29U2fOLVUgDrDN74LVnpaWT0TLTvHYSwroSKrpph/CqIn+DwVjU0dJUsIqKSGUH7zAUa/KHgpq0a51jacC36nucTRyaZi5v6FS227d9otGGtlrqOtaP8AfUwyfaFv6zRum6rJdbI4yeuMlvwWqqNm1lfkw1FXD3bwd8VF6Hyhm1pPKP1OwAVNgtUx6y1z2/NOT5Sd8x6OmLeD3zPKikmzGIn+FdngfijBWI2Ynru4x3Rf3S0UmM3td5Res5QRS2200veGOeR+pUZu22raTXgg380rT1U0LWe8BbGLZlRA/wAa51Du3dYAn9Ns907FgysnnP45CB7kYpLsS3Ko1DqG+357DervWXDcOW9PKXBp7lItitR0Or3wk4E9O4eJHFSXaLpWz0mkKipt1BFDNA5r99vMjOCMqvtn1aKLWdsmJw0y7h8CMK+nJdhNF/Sxsmjkgk4skYWO8CMLkq+Ubrdeq6geMGCd7MHszwXWUjt1/PrXO+3K3+Za+nna3DKyNsw7zyKncR9uQpvfBUmoY9yu3h9poPy+S1q3upIi6Jko+ycH2/8AwtEvOV46ZtHaoy1QTFaWPpaiOP7zgFKnO3WZAWgsUW/Wb/3G5+XzUrslE6432ht7Rkz1DGY7s8fctVnHlme5e6R0hswoforQVqpnN3ZHxdK/xdxWO1et810RUtBw6oe2IfrkrfBrYWMgjGGxtDB4AYVb7crhhlttrT96Zw9wXdktMDlp5kRLRXQu1TbjPkRMlD3YGeAV4P1JaifrJP6FUWyaz/S93qZXSmJlPF6wGeJKsv8A2XZ/xrv6Fhm02Wbj46jtf35f6Em7UVs7Zj/Imw0vH11r/wCgJVulqfHpVcp8AFDKHueP1Jb2+rHO7+UBNptVxN+qonH8z0+Zpe3j15Jn/wA2E4j07aWf5bf/ADOJRlCwyOT6rrnfVRQR+zJTR9zv1YcNlqSD1RsIHuU3ht1FB9VSQt8GpwGbowAAO4J5QsEAZaL3Uuy6CY565H4TyDS1xdjfdTs8XZUy3XdhRgjqITyLBGI9J1J9asgHg0rM6RqsejWwHxaQpC+aJnrzxM/M8BISXi1Q/W3OiZ4zt/dG48Ijs2lroziwQS/ldhM5KW7W928YqmHH2m5x7lJZNW6bi+svlCPCTPwSLtdaUHom+Ux9jiPgmskWjU0eqbtTYDpm1DR1SjJ/Xmt7RaqtdfGaa4wdCHjDg4bzCmMl20RdTj6Qot88nNduFM63TXSRme01cVZHz3Q4Z/UcCmkRaYw1nokQQOu9hInoz6UkTDvFg7R2hRzSN9uOmb5Bd7XKY5oz6bc+jI3ra4KR2u7XKw1ZaN9g+3DIODh4JjrGhoJ2/TlnaGQSuxUU/XC89f5SrYvOzK2iWbS9QUepbvRXyiOGVFGzfYebHjgWlbDTuuY9G7OKvzUtfda2pcKZp+wMYLz4KnmzvYMNe4DsBWMkpd6zi7HLJUtCcVHsVaMPI6Lq+8XUvkdNWV1VJkk+k57irQ01o+2adp2XG/yxPqsZaxxy2PwHWVHdHVtFp21+fxxtqLvUjDC4ejTs/cr2MXjUVa5wMlQ/PpPcfRaozb4XBZFYJRddaQtJjt1Pv44CSTgPYFGqu+Xe4PLDUSuz9iIYH6BbaKxWa2sEl4uELnjiWukDGj2cysv9rNIUP8OO6UUQHUwE/AKrCLt2aOKy3eqO8KV4B65XYTtmk7i4ZfNTs7skrZN1tpWQ4F8pvbvD5J5DqKwT/VXqhd/rAfFGWGDSHR9UR/8AjYf6CkZNH144sqKd/jkKWxV1BL9XXUr/AMszT805YWv9V7XeBBUcjUSAv0veI+LIWOx9yRYiC/0PEMrY8fdyR7lYrWP54Kyw4dqWoekr+HUV3pyBLIH90jOKfQaum/xaON35XEKXyxRyDEkMbx3tBTKe0WuX16CHPc3CWUPSaiPVtIeD6SVp7nApZuqbaebJ2/ypWXTlodygez8rym79L20+q+dv82UZQYZmdT2s9c39CP8Aae0/7yUfyJm/S1J9mqmHiAm8ulYT6tdJ7WhGw9xbUF9tFdYq6k6WQmWBzQNzrxwVCwVTqaphnaSHRSNf+hyrvGk2E48+OPyKktSURtt9raBxz0Mrm57QrIPHAJHR9PUtqaSCpa7LZY2vB8Qqw8oig6S12y7NbxhkMLz3HiPepTs0rvPtEUDy7L4QYXfylZbTbf8ASmgrnTgZfHH0zPFvH4ZW+a10yuO0jma4x9LRSM693PzUVUvByzJ6worVM6Kokj+64hedvI4kmda1ezRuNPRbsDpT9o4/RWVsQt/n2voZ3NyyiidMT2HkFArdF0VFGzr3cn28Vdvk8W3ctV0uzh6U0ohYe5vE+9brKGNKM1xLLZZpJLvEqjtq1f55rWqa12WU4bC32DirzAIdyVDXfTGqq281lR9C1TjLM52eGDx8V0q+WsIxwWGSHZZqewaes9X9I1EjaqebO4yMu9EDgpLLtU06z6uGul8GAfNVvFoPV0nKzvb+aRo+adw7ONWP9ampo/zTfsFk6bfYsyiZybXLePqbPUv/ADSgfJNpdrsv+DY4x+eY/JaKDZdqF/1lVQR/zE/JbGn2U15I6a80zfyxE/NSVB+BZPZtrN5d9VbaFnjvH5ppLtR1O/1PMox3Q5+K3MOyeAcZr3IfyRAfFPItl1jZ9ddKt3taPkp9D6Fkh8u0XVsnK4sZ+SFoTObW2rJfWvlSPy4CsRmzvSMWOkqKh575/wBks3Rmh4ucBf4zOKaoBkqefUeoZvrL3XO/1SmE9xuMh/iXKqdntmKu2PT+h4eVphf+ZpPxS7KTScP1VjpuH/khPohkoF80jvXqJXeLyVi2J7z6Mcjz3NJXQgqLNEP4Nnp29n8Nv7IN1iZ9Vb4W/wAoUlQ+xORQcdvrX+pb6p3hA79k4bZ7seItVb/0Hfsrwfepvs08TfYkzeao/ZYPYpdBeRaikpKOrphmooqiEdr4iB8E6t1yrKN4fSVc0JHWx5CuJ11me3EsUT2nmHNyozqHT9ruYdLSQNoqrnlnqOPeFGVJpbAnnk0B1ZeKmERVdS2pAHAytBcPako7nPuuAlcA8YcAeBC09TTT0dS6nqWFkjerqPeF41xHWquCWg2vSjhgrEzceaYCR3avHPPajULpm4kvM7GBsYaMDHFJVWp77JTCmbcpoYB/hxHcHuWoc4nrTqz2ue6VPRxnciaf4khHBvh3o52HoSGE0ktRJh75Jnk8ASXEpVlnusgzHaqxw/5JVm2OnoLNEGUNHH0n2ppBvPd+y2gu9aORb/SrVR23IuXgpuSzXdvrWmsA/wCQf2SD6CsZ69BUtPfC4fJXgy81vWGH2Jdl5m+3BE72IdFeQ1MoTcfHzbKw+BCUZUzMPoVUzfCQhX19KwO+tt0Lv5R+yxdPZJh/Gs8DvGNpS6Q8lIw3i6xfVXSsb4TFO4tVali+rvtcP9UlW6+h0jN9ZZKYf6ISD9N6HmPG2Qs8Mj4JdEeSs4td6uj5Xuod+bBTmLaTq9h43CN/5oWlTyTQ+iZeLY3xn8M7gm8uzjSr/qqupZ4TA/FJ0GGSLR7UtTs9cUUnjFj4J1Ftau7frbZRP8C4fNbObZbaX8YbvVt8Q0/JMZ9lP+5vZ/nh/YqLt34DUjKPa6//ABrI3+Sb904j2tW531toqmflkBWnn2VXQZ6K60j/AMzCPmmUuzDUjPUloZP9Qj5KPQl4HlEwh2paed9ZBXR/yA/NVvtAuVvu+p57jbXPMEzWk77d072OKfS7OtVs5UUEn5Zgmk2h9WR87NK78r2n5qPTkuw00TTYZW79Bcre53GORsrR3EYKsZ8TZ4ZIHjLZGFjh3EYVWbJ7JqG06nfJW2yenppIHNke/GAeY61a7G8eC3Uf8MMqnycpXajdQXasoXtw6CZzMeBUUvke5Wlw5OAKtjbXbfMNe1ErW4jrI2zDvPI+9Vtf4N5jJAOIdhcW9p7P6OhbS9xsxwaugtmddSWjQtupTBK6RzDK8jrLjlc+AhzfFTu3bQnUdtp6QWtr3Qxhm8ZMA47lroSjF7meabLlk1DH9mkefFyQfqObGG0gHi5VDLtIrz9XbaVv5nEppNtBvjvUjpI/CPPxWv1ESrplxv1DWH1YIh+pST73cXcjG3waqVl1tqOTlWMZ+WIBNJdT6hk9a61A/KcKLuYjVMvE3S5O/wAYjwasHVlcfXqZPa7Coaa8XeT6y5VTs9shTWSqqpPXqp3HvkKi7r6H0y/n1oH1tawfmmA+aRfd7bH9ZdKUeMw/dUCXOJ9KRx8XFecOsqLuvofTL4k1LYIx6d3pfYSU2k1npqP/APcd/wDJGSqTa4BDpo4xl72t/McKLuh9MuKXaDp5nqmqk8IsfNNZdpFrb9XQVT/EgKphW03/ABEP/UH7rB9ypGc52ew5+Cg7tLuhqjLwWjLtLb/hWg/zS/2TObaRXu+qttM3xc4qtZLxSNGRJvdwafmkvpym+5L/AEj91B3sfkSVvN9iwZ9oN9f6jKSPwjz8Uzl1zqR3KrjZ+WIKDOvkR5RPPjgJM3pp/wAF2Pzj9lU76PyJq2n4Js3Wuo2TNebgXgHJY5gwe5WTpnUFJfqESwEMnaP4sJPFp+YVD0lwjqHbuCx3YStlQ1VTRVDamknfDK3k5pwr6NzndPKK6lLGzReFyoqWvi3KmMOxydyI8Co/U6YGSaerwOx7VpLRtCe1gju1IXnkZYeBPiFIaXVmn6kDduDYyeqRpaVqUoTKcSRr3acrhwbLCfasRp2vJ4yQj+YqQMu1qfxbcaU/6gQ+7Wloy640o/1AnpgGZGpptNDeBqqjeH3WDGfapBSQx00LYYGBkY5ALT1mq7DTA/8AfRM77sTSSote9c1dQ10Nsh81YeHSO4v9nYlrhAeGySay1UyzxGlpHNkr3DxEQ7T39yhses9SZz9IZ8YwVHpXkudLLIXOPFznHiVqqi8BkpbEzeaOGc81jrXWl5bLqdFy4RYMOutRM51ED/GEJ5FtDvbR6cFJJ4sI+CrFt9I5wH2P/slWX2H7Ucg8MFQV9DySdrPwWnFtKrR9ba6d35XEJ3FtLi/xbQ7+WX+yqT6cpj9mX2tH7pUXWjI+vA/lP7KavI/Ii7ea7FwR7SLU76ygq2eBBTiLaDp53ruqo/GLPzVONrqZzeFRF7XgfFeedwE4E0R8HgqxXf2iPRfgu1mttMyD/wDMdz88ZCWZqbT8vqXim9riPkqO3g4Zzleej2hSV0yPTL5ZdrdJxiutKfCcfunMVYTjorgw/lmB+a59w09iyBc31XuHg5SV39B0johtZcB6tTIR45Sjbnc2/wCKT4tXPEdVVMPoVU7fCQp1FerxF9XdKtvhIVL1X0LpHQDb3cW8+jd4tSzNQ1g9aCI/qFQkOqtRRDhdqg/mOU8i1xqRnOsY/wDNECpepQumXq3UUv26QHwclY9Rwj1qOQeDlR8W0K+NHpxUknjHj4J1DtIrBwltlM78riFL1ERdNkh27TU9ypbbcIYXsfC50Ty7sPEe9VLM1rgMtBCluqNZC92g0H0cIXF4fv7+cYUQe7AWKu1JtltNNGmt906NgjnBIHJy2AuNJj64foVGkLkQuJxWDpSoQk8kidc6Qcpc+AKSfeIB6rXu9i0SE3c1GCt4I3JvY6oD/V/ZYPvUh9WEDxdlalCi69R9xqjBdjYvu9SRwaxvsKSNyrD/AIo/pCZoUHUm+5LRHwOnV9W7nMR4ABJmqqTznk/qKRQk5N9yWleDJ0j3es9x8SsUIURghCEACEIQAIQhAHoJByDgrY0l0ezDZhvDtHNa1ClGcoPKIygpLDJJDX00jc9I0ePBOmvicMggqJBLxdS1Ru5d0Z5W0ezJOHRjraFlvR9rVo4fVWMyt9W8cFfpvs3j5omes4NCaVF0poh6Lt89jeK0EvrJJUyu5PhFkbaPce11xmqctHoMPUOtMkIWWUnJ5ZpjFRWECEISGCEIQAIQhAHuT2lZNlkb6sjh4FYIQAsKqpB+vk9rko24VY5TfqAmqE9TXcWleB6251gOTIHeLQlW3ioHrRxnwytahTVWa7kXTi+xt23o440+fB/9lk29DPGEj+bK0yFJV6nkj0YeDfsu9OfWDm+ISouVIf8AFHtB/ZRtCkrmoiLt4ElNwpd3PTN/Vau4XF0zg2ElrR19q1yEp3E5rDJQoxi8o//Z" style="width:18px;height:18px;object-fit:contain;vertical-align:middle;"><span>チュートリアル・ヘルプ</span></div>
         <div class="hm-divider"></div>
+        <div class="hm-item" onclick="closeHamburger();signOutUser()" style="color:var(--text3);">🚪<span>ログアウト</span></div>
         <div class="hm-item hm-danger" onclick="confirmReset()">🔄<span>データリセット</span></div>
       </nav>
-      <div id="hm-footer">ver. Phase3 · CLANS OF BABEL</div>
+      <div id="hm-footer">
+        <div id="hm-account-info" style="margin-bottom:6px;font-size:10px;color:var(--text3);line-height:1.5;"></div>
+        <div style="display:flex;gap:8px;justify-content:center;margin-bottom:6px;">
+          <button onclick="closeHamburger();openAccountModal()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text3);font-size:10px;padding:4px 10px;cursor:pointer;">🔗 アカウント設定</button>
+        </div>
+        ver. 0.4 · CLANS OF BABEL
+      </div>
     </div>
   </div>
 
@@ -2798,6 +2923,55 @@ img.item-icon {
     <div style="padding:8px 12px;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0;">
       <button class="btn btn-outline" style="flex:1;font-size:12px;" onclick="closeTactics()">閉じる</button>
       <button class="btn btn-gold"    style="flex:1;font-size:12px;" onclick="saveTactics()">✓ 保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ACCOUNT MODAL -->
+<div class="modal-overlay" id="account-modal" style="display:none;">
+  <div class="modal-panel" style="max-width:380px;">
+    <div class="modal-header">
+      <h3>🔗 アカウント設定</h3>
+      <button class="close-btn" onclick="closeAccountModal()">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px;display:flex;flex-direction:column;gap:14px;">
+
+      <!-- 現在のアカウント情報 -->
+      <div style="background:var(--bg3);border:1px solid var(--border);padding:12px;border-radius:4px;">
+        <div style="font-size:10px;color:var(--text3);letter-spacing:2px;margin-bottom:8px;">CURRENT ACCOUNT</div>
+        <div id="acct-user-info" style="font-size:13px;color:var(--text);line-height:1.8;"></div>
+      </div>
+
+      <!-- Google連携 -->
+      <div id="acct-google-section">
+        <div style="font-size:10px;color:var(--text3);letter-spacing:2px;margin-bottom:8px;">GOOGLE連携</div>
+        <button id="acct-google-btn" onclick="acctLinkGoogle()"
+          style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:10px;background:#fff;color:#222;border:none;cursor:pointer;font-size:13px;font-weight:600;">
+          <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.2l6.8-6.8C35.8 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.9 6.1C12.5 13 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.5 2.9-2.2 5.3-4.7 6.9l7.3 5.7c4.3-4 6.2-9.9 6.2-16.6z"/><path fill="#FBBC05" d="M10.6 28.6A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.9-4.6L2.6 13.3A23.9 23.9 0 0 0 0 24c0 3.9.9 7.5 2.7 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.2 0 11.4-2 15.2-5.4l-7.3-5.7c-2 1.4-4.6 2.1-7.9 2.1-6.2 0-11.5-4.2-13.4-9.9l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>
+          <span id="acct-google-label">Googleアカウントを連携する</span>
+        </button>
+      </div>
+
+      <!-- メール連携 -->
+      <div id="acct-email-section">
+        <div style="font-size:10px;color:var(--text3);letter-spacing:2px;margin-bottom:8px;">メールアドレス連携</div>
+        <input id="acct-link-email"    type="email"    placeholder="メールアドレス"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:9px 12px;font-size:13px;margin-bottom:6px;">
+        <input id="acct-link-password" type="password" placeholder="パスワード（6文字以上）"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:9px 12px;font-size:13px;margin-bottom:8px;">
+        <button onclick="acctLinkEmail()"
+          style="width:100%;padding:10px;background:var(--accent);color:white;border:none;cursor:pointer;font-size:13px;font-family:'Rajdhani',sans-serif;font-weight:700;letter-spacing:1px;">
+          メールアドレスを連携する
+        </button>
+      </div>
+
+      <!-- メッセージ -->
+      <div id="acct-msg" style="display:none;font-size:12px;text-align:center;padding:8px;border-radius:4px;"></div>
+
+      <!-- ログアウト -->
+      <button onclick="signOutUser()" style="width:100%;padding:10px;background:none;border:1px solid var(--border);color:var(--text3);cursor:pointer;font-size:13px;">
+        🚪 ログアウト
+      </button>
     </div>
   </div>
 </div>
@@ -5963,18 +6137,31 @@ function updateHamburgerInfo() {
   if (!gState) return;
   document.getElementById('hm-clan-name').textContent = gState.player.clanName + ' クラン';
   document.getElementById('hm-clan-lv').textContent = 'Clan Lv.' + gState.player.level;
+  updateHmAccountInfo();
 }
 
 function confirmReset() {
   closeHamburger();
   if (confirm('セーブデータをすべてリセットします。\nクラン名入力からやり直しますか？')) {
     localStorage.removeItem('cob_state');
+    // Firestoreのデータも削除（非同期）
+    if (window._fbCurrentUser && window._fbFns && window._fbDb) {
+      const { doc, setDoc, serverTimestamp } = window._fbFns;
+      setDoc(doc(window._fbDb, 'saves', window._fbCurrentUser.uid), {
+        saveJson: '', updatedAt: serverTimestamp(), deleted: true,
+      }).catch(()=>{});
+    }
     gState = null;
     // アプリ非表示、オーバーレイ表示
     document.getElementById('app').classList.remove('active');
     document.getElementById('overlay').classList.add('visible');
-    document.getElementById('clan-name-input').value = '';
-    document.getElementById('clan-name-input').focus();
+    // Firebase: ログアウトして認証画面に戻る
+    if (window._fbFns && window._fbAuth) {
+      window._fbFns.signOut(window._fbAuth).catch(()=>{});
+    } else {
+      document.getElementById('auth-loading').style.display = 'none';
+      document.getElementById('auth-panel').style.display = 'flex';
+    }
   }
 }
 
@@ -14780,17 +14967,367 @@ function switchTab(tab) {
 }
 
 // ============================================================
+//  ACCOUNT MODAL (連携設定)
+// ============================================================
+
+function openAccountModal() {
+  const user = window._fbCurrentUser;
+  const el   = document.getElementById('account-modal');
+  if (!el) return;
+  el.style.display = 'flex';
+
+  // 現在のアカウント情報表示
+  const infoEl = document.getElementById('acct-user-info');
+  if (infoEl && user) {
+    const providers = user.providerData.map(p => ({
+      'google.com': '🔵 Google',
+      'password':   '📧 メール',
+    }[p.providerId] || p.providerId));
+    infoEl.innerHTML = `
+      <div>📧 ${user.email || '未設定'}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px;">連携済み: ${providers.join(' / ') || 'なし'}</div>
+    `;
+
+    // Google連携済みかどうかでボタン変更
+    const hasGoogle = user.providerData.some(p => p.providerId === 'google.com');
+    const gLabel = document.getElementById('acct-google-label');
+    const gBtn   = document.getElementById('acct-google-btn');
+    if (gLabel) gLabel.textContent = hasGoogle ? '✅ Google連携済み' : 'Googleアカウントを連携する';
+    if (gBtn)   gBtn.style.opacity = hasGoogle ? '0.5' : '1';
+    if (gBtn)   gBtn.disabled = hasGoogle;
+
+    // メール連携済みかどうか
+    const hasEmail = user.providerData.some(p => p.providerId === 'password');
+    const emailSec = document.getElementById('acct-email-section');
+    if (emailSec) emailSec.style.display = hasEmail ? 'none' : '';
+  }
+
+  document.getElementById('acct-msg').style.display = 'none';
+}
+
+function closeAccountModal() {
+  const el = document.getElementById('account-modal');
+  if (el) el.style.display = 'none';
+}
+
+function acctShowMsg(msg, isError = false) {
+  const el = document.getElementById('acct-msg');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.background = isError ? 'rgba(224,85,85,0.15)' : 'rgba(76,175,110,0.15)';
+  el.style.color = isError ? '#ff6666' : '#4caf6e';
+  el.style.display = '';
+}
+
+// Google連携
+async function acctLinkGoogle() {
+  const fns  = window._fbFns;
+  const user = window._fbCurrentUser;
+  if (!fns || !user) return acctShowMsg('認証情報がありません。', true);
+  const hasGoogle = user.providerData.some(p => p.providerId === 'google.com');
+  if (hasGoogle) return acctShowMsg('すでにGoogleアカウントが連携されています。');
+  try {
+    await fns.linkWithPopup(user, window._fbGProvider);
+    acctShowMsg('✅ Googleアカウントを連携しました！');
+    openAccountModal(); // 再描画
+  } catch(e) {
+    console.error(e);
+    if (e.code === 'auth/credential-already-in-use') {
+      acctShowMsg('このGoogleアカウントは別のアカウントに連携済みです。', true);
+    } else if (e.code === 'auth/popup-closed-by-user') {
+      // 何もしない
+    } else {
+      acctShowMsg('連携に失敗しました: ' + e.message, true);
+    }
+  }
+}
+
+// メール連携
+async function acctLinkEmail() {
+  const fns  = window._fbFns;
+  const user = window._fbCurrentUser;
+  if (!fns || !user) return acctShowMsg('認証情報がありません。', true);
+  const email = (document.getElementById('acct-link-email')?.value||'').trim();
+  const pass  = (document.getElementById('acct-link-password')?.value||'').trim();
+  if (!email || !pass) return acctShowMsg('メールアドレスとパスワードを入力してください。', true);
+  try {
+    const credential = fns.EmailAuthProvider.credential(email, pass);
+    await fns.linkWithCredential(user, credential);
+    acctShowMsg('✅ メールアドレスを連携しました！');
+    openAccountModal(); // 再描画
+  } catch(e) {
+    console.error(e);
+    const msgs = {
+      'auth/email-already-in-use': 'このメールアドレスは別のアカウントで使用中です。',
+      'auth/invalid-email':        'メールアドレスの形式が正しくありません。',
+      'auth/weak-password':        'パスワードは6文字以上にしてください。',
+      'auth/provider-already-linked': 'すでにメールアドレスが連携されています。',
+    };
+    acctShowMsg(msgs[e.code] || e.message, true);
+  }
+}
+
+// ハンバーガーのアカウント情報を更新
+function updateHmAccountInfo() {
+  const el   = document.getElementById('hm-account-info');
+  const user = window._fbCurrentUser;
+  if (!el) return;
+  if (user) {
+    const providers = user.providerData.map(p => ({
+      'google.com': 'G', 'password': '✉',
+    }[p.providerId] || '?')).join('/');
+    el.textContent = `${user.email || 'ゲスト'} [${providers}]`;
+  } else {
+    el.textContent = '未ログイン';
+  }
+}
+
+// ============================================================
+//  FIREBASE AUTH & CLOUD SAVE
+// ============================================================
+
+let _authTab = 'login'; // 'login' | 'register'
+
+function authSwitchTab(tab) {
+  _authTab = tab;
+  const isReg = tab === 'register';
+  document.getElementById('tab-login-btn').style.background    = isReg ? 'var(--bg3)' : 'var(--gold)';
+  document.getElementById('tab-login-btn').style.color         = isReg ? 'var(--text3)' : '#0a0b0f';
+  document.getElementById('tab-register-btn').style.background = isReg ? 'var(--gold)' : 'var(--bg3)';
+  document.getElementById('tab-register-btn').style.color      = isReg ? '#0a0b0f' : 'var(--text3)';
+  document.getElementById('auth-submit-btn').textContent       = isReg ? '新規登録' : 'ログイン';
+  document.getElementById('auth-clanname-wrap').style.display  = isReg ? '' : 'none';
+  document.getElementById('auth-reset-btn').style.display      = isReg ? 'none' : '';
+  document.getElementById('auth-error').style.display = 'none';
+}
+
+function authShowError(msg) {
+  const el = document.getElementById('auth-error');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = '';
+}
+function authClearError() {
+  const el = document.getElementById('auth-error');
+  if (el) el.style.display = 'none';
+}
+
+// Google認証
+async function authWithGoogle() {
+  authClearError();
+  const fns = window._fbFns;
+  const auth = window._fbAuth;
+  if (!fns) return authShowError('Firebase未初期化。リロードしてください。');
+  try {
+    await fns.signInWithPopup(auth, window._fbGProvider);
+    // onAuthStateChanged が呼ばれて _onFirebaseSignIn が実行される
+  } catch(e) {
+    console.error(e);
+    if (e.code === 'auth/popup-closed-by-user') return;
+    authShowError('Googleログインに失敗しました: ' + e.message);
+  }
+}
+
+// メール認証（ログイン or 新規登録）
+async function authSubmit() {
+  authClearError();
+  const fns  = window._fbFns;
+  const auth = window._fbAuth;
+  if (!fns) return authShowError('Firebase未初期化。リロードしてください。');
+  const email = (document.getElementById('auth-email')?.value||'').trim();
+  const pass  = (document.getElementById('auth-password')?.value||'').trim();
+  if (!email || !pass) return authShowError('メールアドレスとパスワードを入力してください。');
+
+  try {
+    if (_authTab === 'register') {
+      // クラン名チェック（後で使用）
+      const clanName = (document.getElementById('auth-clanname')?.value||'').trim();
+      if (!clanName || clanName.length < 1 || clanName.length > 16) {
+        return authShowError('クラン名は1〜16文字で入力してください。');
+      }
+      window._pendingClanName = clanName;
+      await fns.createUserWithEmailAndPassword(auth, email, pass);
+    } else {
+      await fns.signInWithEmailAndPassword(auth, email, pass);
+    }
+  } catch(e) {
+    console.error(e);
+    const msgs = {
+      'auth/email-already-in-use': 'このメールアドレスは既に使用されています。',
+      'auth/invalid-email':        'メールアドレスの形式が正しくありません。',
+      'auth/weak-password':        'パスワードは6文字以上で入力してください。',
+      'auth/user-not-found':       'アカウントが見つかりません。',
+      'auth/wrong-password':       'パスワードが正しくありません。',
+      'auth/invalid-credential':   'メールアドレスまたはパスワードが正しくありません。',
+      'auth/too-many-requests':    'ログイン試行が多すぎます。しばらく待ってから再試行してください。',
+    };
+    authShowError(msgs[e.code] || e.message);
+  }
+}
+
+// パスワードリセット
+async function authResetPassword() {
+  const fns  = window._fbFns;
+  const auth = window._fbAuth;
+  const email = (document.getElementById('auth-email')?.value||'').trim();
+  if (!email) return authShowError('メールアドレスを入力してください。');
+  try {
+    await fns.sendPasswordResetEmail(auth, email);
+    authShowError('パスワードリセットメールを送信しました。');
+  } catch(e) {
+    authShowError('送信失敗: ' + e.message);
+  }
+}
+
+// 新規ユーザー: クラン名入力後にゲーム開始
+async function authNewUserStart() {
+  const clanName = (document.getElementById('newuser-clanname')?.value||'').trim();
+  const errEl = document.getElementById('newuser-error');
+  if (!clanName || clanName.length < 1 || clanName.length > 16) {
+    if (errEl) { errEl.textContent='クラン名は1〜16文字で入力してください。'; errEl.style.display=''; }
+    return;
+  }
+  if (errEl) errEl.style.display = 'none';
+  const user = window._fbCurrentUser;
+  if (!user) return;
+  // 新規セーブデータ作成
+  gState = defaultState(clanName);
+  gState.presets[0].formation.slots = [gState.ownedUnits[0].uid];
+  giveStarterCardsForClass('warrior');
+  await cloudSaveState(user.uid);
+  launchApp();
+}
+
+// Firestore: セーブデータ読み込み
+async function cloudLoadState(uid) {
+  const { doc, getDoc } = window._fbFns;
+  const db = window._fbDb;
+  try {
+    const snap = await getDoc(doc(db, 'saves', uid));
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data.saveJson) {
+        gState = JSON.parse(data.saveJson);
+        normalizeState();
+        return true;
+      }
+    }
+  } catch(e) {
+    console.error('[CloudLoad]', e);
+  }
+  return false;
+}
+
+// Firestore: セーブデータ書き込み
+async function cloudSaveState(uid) {
+  const { doc, setDoc, serverTimestamp } = window._fbFns;
+  const db = window._fbDb;
+  uid = uid || window._fbCurrentUser?.uid;
+  if (!uid) return;
+  try {
+    await setDoc(doc(db, 'saves', uid), {
+      saveJson: JSON.stringify(gState),
+      updatedAt: serverTimestamp(),
+      displayName: window._fbCurrentUser?.displayName || '',
+      email: window._fbCurrentUser?.email || '',
+    });
+  } catch(e) {
+    console.error('[CloudSave]', e);
+  }
+}
+
+// saveStateをCloud対応に拡張（ローカル保存 + クラウド保存）
+const _origSaveState = saveState;
+window.saveState = function() {
+  // ローカル保存（既存）
+  localStorage.setItem('cob_state', JSON.stringify(gState));
+  // クラウド保存（非同期、エラーは無視）
+  if (window._fbCurrentUser) {
+    cloudSaveState(window._fbCurrentUser.uid).catch(()=>{});
+  }
+};
+// 既存のsaveState呼び出しを上書き
+saveState = window.saveState;
+
+// Firebase認証成功時のコールバック
+window._onFirebaseSignIn = async function(user) {
+  document.getElementById('auth-loading').style.display = '';
+  document.getElementById('auth-panel').style.display = 'none';
+  document.getElementById('auth-newuser-panel').style.display = 'none';
+  document.getElementById('auth-loading').textContent = 'データを読み込み中...';
+
+  // クラウドからセーブデータ読み込み
+  const hasCloud = await cloudLoadState(user.uid);
+
+  if (hasCloud) {
+    // 既存ユーザー: そのまま起動
+    launchApp();
+  } else {
+    // 新規ユーザー: クラン名入力画面へ
+    // Googleログイン時はdisplayNameをデフォルトに
+    const googleName = user.displayName?.slice(0,16) || '';
+    const input = document.getElementById('newuser-clanname');
+    if (input && googleName) input.value = googleName;
+    document.getElementById('auth-loading').style.display = 'none';
+    document.getElementById('auth-newuser-panel').style.display = 'flex';
+  }
+};
+
+// ログアウト時
+window._onFirebaseSignOut = function() {
+  // 認証パネルを表示
+  document.getElementById('auth-loading').style.display = 'none';
+  document.getElementById('auth-panel').style.display = 'flex';
+  document.getElementById('auth-newuser-panel').style.display = 'none';
+  // アプリが起動していれば非表示に
+  document.getElementById('app').classList.remove('active');
+  document.getElementById('overlay').classList.add('visible');
+};
+
+// ログアウト関数（ハンバーガーメニューなどから呼ぶ）
+async function signOutUser() {
+  if (!confirm('ログアウトしますか？')) return;
+  const fns = window._fbFns;
+  const auth = window._fbAuth;
+  if (!fns) return;
+  await fns.signOut(auth);
+}
+
+// ============================================================
 //  BOOT
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-  if (loadState()) {
-    launchApp();
-  }
-  // Enter key for clan name
-  document.getElementById('clan-name-input').addEventListener('keydown', e=>{
-    if (e.key==='Enter') startGame();
-  });
+  // Firebase が初期化されるまで少し待つ
+  // onAuthStateChanged (firebase module) が状態を判定して_onFirebaseSignIn/_onFirebaseSignOutを呼ぶ
+  // フォールバック: Firebaseが読み込めなかった場合は従来のlocalStorage起動
+  setTimeout(() => {
+    if (!window._fbAuth) {
+      // Firebase未ロード → ローカルモードで起動
+      console.warn('[Boot] Firebase unavailable, local mode');
+      document.getElementById('auth-loading').style.display = 'none';
+      document.getElementById('auth-panel').style.display = 'flex';
+      // submit を localStorageモードに
+      document.getElementById('auth-submit-btn').onclick = () => {
+        if (_authTab === 'register') {
+          const name = (document.getElementById('auth-clanname')?.value||'').trim();
+          if (!name) return authShowError('クラン名を入力してください。');
+          gState = defaultState(name);
+          gState.presets[0].formation.slots = [gState.ownedUnits[0].uid];
+          giveStarterCardsForClass('warrior');
+          saveState();
+          launchApp();
+        } else {
+          if (loadState()) {
+            launchApp();
+          } else {
+            authShowError('セーブデータが見つかりません。新規登録してください。');
+          }
+        }
+      };
+      document.getElementById('auth-google-btn').style.display = 'none';
+    }
+  }, 3000); // 3秒でFallback判定
 });
 </script>
 </body>
