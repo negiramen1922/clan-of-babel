@@ -10,58 +10,8 @@
   gtag('config', 'G-LJHYV9VBCY');
 </script>
 
-<!-- Firebase SDK (CDN) -->
-<script type="module">
-  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-  import {
-    getAuth, onAuthStateChanged, signOut,
-    signInWithPopup, GoogleAuthProvider,
-    createUserWithEmailAndPassword, signInWithEmailAndPassword,
-    sendPasswordResetEmail, linkWithPopup, linkWithCredential,
-    EmailAuthProvider, fetchSignInMethodsForEmail,
-  } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-  import {
-    getFirestore, doc, getDoc, setDoc, serverTimestamp,
-  } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyCOncJWXl6hLUGRqqF8GiBZ1JYiZ81iH9w",
-    authDomain: "babeldungeons.firebaseapp.com",
-    projectId: "babeldungeons",
-    storageBucket: "babeldungeons.firebasestorage.app",
-    messagingSenderId: "371364553105",
-    appId: "1:371364553105:web:a316783c1b0b4e5ece3a30",
-    measurementId: "G-1BTBY8V3X4"
-  };
-
-  const fbApp  = initializeApp(firebaseConfig);
-  const auth   = getAuth(fbApp);
-  const db     = getFirestore(fbApp);
-  const gProvider = new GoogleAuthProvider();
-
-  // ── グローバルに公開（ゲーム本体JSから使う） ──
-  window._fbAuth = auth;
-  window._fbDb   = db;
-  window._fbGProvider = gProvider;
-  window._fbFns = {
-    signInWithPopup, GoogleAuthProvider, gProvider,
-    createUserWithEmailAndPassword, signInWithEmailAndPassword,
-    sendPasswordResetEmail, linkWithPopup, linkWithCredential,
-    EmailAuthProvider, fetchSignInMethodsForEmail,
-    doc, getDoc, setDoc, serverTimestamp, signOut,
-  };
-
-  // ── 認証状態の監視 ──
-  onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      window._fbCurrentUser = user;
-      await window._onFirebaseSignIn(user);
-    } else {
-      window._fbCurrentUser = null;
-      window._onFirebaseSignOut();
-    }
-  });
-</script>
+<!-- Firebase SDK 無効化（ローカルモード専用） -->
+<!-- Firebase を使わずブラウザのlocalStorageでセーブデータを管理します -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="screen-orientation" content="portrait">
@@ -2059,7 +2009,12 @@ img.item-icon {
   </div>
 
   <!-- ローディング -->
-  <div id="auth-loading" style="color:var(--text3);font-size:13px;letter-spacing:2px;">LOADING...</div>
+  <div id="auth-loading" style="color:var(--text3);font-size:13px;letter-spacing:2px;text-align:center;">
+    <div id="auth-loading-bar" style="width:200px;height:3px;background:var(--border);border-radius:2px;margin:0 auto 12px;overflow:hidden;">
+      <div id="auth-loading-fill" style="height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:2px;width:0%;transition:width 0.3s ease;"></div>
+    </div>
+    <div id="auth-loading-text" style="font-size:12px;color:var(--text3);">起動中...</div>
+  </div>
 
   <!-- 認証パネル -->
   <div id="auth-panel" style="display:none;flex-direction:column;align-items:center;gap:14px;width:300px;">
@@ -15593,79 +15548,25 @@ async function cloudSaveState(uid) {
   }
 }
 
-// saveStateをCloud対応に拡張（ローカル保存 + クラウド保存）
-const _origSaveState = saveState;
+// ============================================================
+//  セーブ管理（ローカルのみ）
+// ============================================================
+// セーブ：localStorageに保存
 window.saveState = function() {
-  // ローカル保存（既存）
   localStorage.setItem('cs_state', JSON.stringify(gState));
-  // クラウド保存（非同期、エラーは無視）
-  if (window._fbCurrentUser) {
-    cloudSaveState(window._fbCurrentUser.uid).catch(()=>{});
-  }
 };
-// 既存のsaveState呼び出しを上書き
 saveState = window.saveState;
 
-// Firebase認証成功時のコールバック
-window._onFirebaseSignIn = async function(user) {
-  try {
-    document.getElementById('auth-loading').style.display = '';
-    document.getElementById('auth-panel').style.display = 'none';
-    document.getElementById('auth-newuser-panel').style.display = 'none';
-    document.getElementById('auth-loading').textContent = 'データを読み込み中...';
+// Firebase コールバックは使用しない（ローカルモード）
+window._onFirebaseSignIn  = function() {};
+window._onFirebaseSignOut = function() {};
 
-    // まずlocalStorageを確認（既存データがある場合は優先）
-    let hasCloud = false;
-    try {
-      hasCloud = await cloudLoadState(user.uid);
-    } catch(e) {
-      console.warn('[CloudLoad] failed, trying localStorage:', e);
-      // Firestore失敗時はlocalStorageを試みる
-      hasCloud = loadState();
-    }
-
-    if (hasCloud) {
-      // 既存ユーザー: そのまま起動
-      launchApp();
-    } else {
-      // 新規ユーザー: クラン名入力画面へ
-      const googleName = user.displayName?.slice(0,16) || '';
-      const input = document.getElementById('newuser-clanname');
-      if (input && googleName) input.value = googleName;
-      document.getElementById('auth-loading').style.display = 'none';
-      document.getElementById('auth-newuser-panel').style.display = 'flex';
-    }
-  } catch(e) {
-    console.error('[_onFirebaseSignIn]', e);
-    // フォールバック: localStorage起動
-    document.getElementById('auth-loading').textContent = 'ローカルデータで起動中...';
-    if (loadState()) {
-      launchApp();
-    } else {
-      document.getElementById('auth-loading').style.display = 'none';
-      document.getElementById('auth-newuser-panel').style.display = 'flex';
-    }
-  }
-};
-
-// ログアウト時
-window._onFirebaseSignOut = function() {
-  // 認証パネルを表示
-  document.getElementById('auth-loading').style.display = 'none';
-  document.getElementById('auth-panel').style.display = 'flex';
-  document.getElementById('auth-newuser-panel').style.display = 'none';
-  // アプリが起動していれば非表示に
+// ログアウト関数（ローカルモードでは初期画面に戻る）
+function signOutUser() {
+  if (!confirm('データを初期化してタイトルに戻りますか？')) return;
   document.getElementById('app').classList.remove('active');
   document.getElementById('overlay').classList.add('visible');
-};
-
-// ログアウト関数（ハンバーガーメニューなどから呼ぶ）
-async function signOutUser() {
-  if (!confirm('ログアウトしますか？')) return;
-  const fns = window._fbFns;
-  const auth = window._fbAuth;
-  if (!fns) return;
-  await fns.signOut(auth);
+  _activateLocalMode();
 }
 
 // ============================================================
@@ -15691,33 +15592,56 @@ function _localAuthSubmit() {
   }
 }
 
+function _setLoadingStatus(msg, pct) {
+  const txt  = document.getElementById('auth-loading-text');
+  const fill = document.getElementById('auth-loading-fill');
+  if (txt)  txt.textContent = msg;
+  if (fill) fill.style.width = pct + '%';
+}
+
 function _activateLocalMode() {
-  console.warn('[Boot] ローカルモードで起動します（Firebase不要）');
-  // auth-submit-btn をローカルモード用に差し替え
-  const btn = document.getElementById('auth-submit-btn');
-  if (btn) btn.onclick = _localAuthSubmit;
-  // Google ボタン非表示
-  const gbtn = document.getElementById('auth-google-btn');
-  if (gbtn) gbtn.style.display = 'none';
-  // パスワードリセットボタン非表示
-  const rbtn = document.getElementById('auth-reset-btn');
-  if (rbtn) rbtn.style.display = 'none';
-  // メール・パスワード入力欄を非表示
-  const emailEl = document.getElementById('auth-email');
-  const passEl  = document.getElementById('auth-password');
-  if (emailEl) emailEl.style.display = 'none';
-  if (passEl)  passEl.style.display  = 'none';
-  // "または" 区切りを非表示（メール入力の上のdivider）
-  const panels = document.querySelectorAll('#auth-panel > div');
-  panels.forEach(d => {
-    if (d.innerHTML && d.innerHTML.includes('または')) d.style.display = 'none';
-  });
-  // ローディング → 認証パネルへ切り替え
-  document.getElementById('auth-loading').style.display = 'none';
-  document.getElementById('auth-panel').style.display   = 'flex';
-  // 既存セーブがあればログインタブ、なければ新規登録タブ
-  const saved = localStorage.getItem('clan_saga_state');
-  authSwitchTab(saved ? 'login' : 'register');
+  console.log('[Boot] ローカルモードで起動します（Firebase不要）');
+
+  // ── ローディング進捗アニメーション ──
+  _setLoadingStatus('ゲームデータを確認中...', 20);
+
+  setTimeout(() => {
+    _setLoadingStatus('セーブデータを読み込み中...', 50);
+    setTimeout(() => {
+      _setLoadingStatus('起動準備完了！', 90);
+      setTimeout(() => {
+        // auth-submit-btn をローカルモード用に差し替え
+        const btn = document.getElementById('auth-submit-btn');
+        if (btn) btn.onclick = _localAuthSubmit;
+        // Google ボタン非表示
+        const gbtn = document.getElementById('auth-google-btn');
+        if (gbtn) gbtn.style.display = 'none';
+        // パスワードリセットボタン非表示
+        const rbtn = document.getElementById('auth-reset-btn');
+        if (rbtn) rbtn.style.display = 'none';
+        // メール・パスワード入力欄を非表示
+        const emailEl = document.getElementById('auth-email');
+        const passEl  = document.getElementById('auth-password');
+        if (emailEl) emailEl.style.display = 'none';
+        if (passEl)  passEl.style.display  = 'none';
+        // "または" 区切りを非表示
+        const panels = document.querySelectorAll('#auth-panel > div');
+        panels.forEach(d => {
+          if (d.innerHTML && d.innerHTML.includes('または')) d.style.display = 'none';
+        });
+        _setLoadingStatus('完了！', 100);
+
+        setTimeout(() => {
+          // 既存セーブがあればログインタブ、なければ新規登録タブ
+          const saved = localStorage.getItem('cs_state');
+          // ローディング → 認証パネルへ切り替え
+          document.getElementById('auth-loading').style.display = 'none';
+          document.getElementById('auth-panel').style.display   = 'flex';
+          authSwitchTab(saved ? 'login' : 'register');
+        }, 300);
+      }, 400);
+    }, 400);
+  }, 300);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
