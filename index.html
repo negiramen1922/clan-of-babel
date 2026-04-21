@@ -10,8 +10,61 @@
   gtag('config', 'G-LJHYV9VBCY');
 </script>
 
-<!-- Firebase SDK 無効化（ローカルモード専用） -->
-<!-- Firebase を使わずブラウザのlocalStorageでセーブデータを管理します -->
+<!-- Firebase SDK (compat版 - CDN) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+// ── Firebase 初期化 ──
+const _firebaseConfig = {
+  apiKey:            "AIzaSyCOncJWXl6hLUGRqqF8GiBZ1JYiZ81iH9w",
+  authDomain:        "babeldungeons.firebaseapp.com",
+  projectId:         "babeldungeons",
+  storageBucket:     "babeldungeons.firebasestorage.app",
+  messagingSenderId: "371364553105",
+  appId:             "1:371364553105:web:a316783c1b0b4e5ece3a30",
+  measurementId:     "G-1BTBY8V3X4"
+};
+const _fbApp  = firebase.initializeApp(_firebaseConfig);
+const _fbAuth = firebase.auth();
+const _fbDb   = firebase.firestore();
+const _fbGProvider = new firebase.auth.GoogleAuthProvider();
+
+// compat版では関数を直接使うのでラッパーオブジェクトを用意
+window._fbAuth = _fbAuth;
+window._fbDb   = _fbDb;
+window._fbFns  = {
+  signInWithPopup:             (auth, provider) => auth.signInWithPopup(provider),
+  signInWithEmailAndPassword:  (auth, e, p)     => auth.signInWithEmailAndPassword(e, p),
+  createUserWithEmailAndPassword:(auth, e, p)   => auth.createUserWithEmailAndPassword(e, p),
+  signOut:                     (auth)            => auth.signOut(),
+  sendPasswordResetEmail:      (auth, email)     => auth.sendPasswordResetEmail(email),
+  linkWithPopup:               (user, provider)  => user.linkWithPopup(provider),
+  linkWithCredential:          (user, cred)      => user.linkWithCredential(cred),
+  EmailAuthProvider:           firebase.auth.EmailAuthProvider,
+  doc:             (db, col, id) => db.collection(col).doc(id),
+  getDoc:          (ref)         => ref.get(),
+  setDoc:          (ref, data)   => ref.set(data),
+  serverTimestamp: ()            => firebase.firestore.FieldValue.serverTimestamp(),
+};
+window._fbGProvider = _fbGProvider;
+
+// ── Auth状態監視 ──
+_fbAuth.onAuthStateChanged(async (user) => {
+  window._fbCurrentUser = user;
+  if (user) {
+    console.log('[Auth] ログイン済み:', user.email || user.uid);
+    if (typeof window._onFirebaseSignIn === 'function') {
+      window._onFirebaseSignIn(user);
+    }
+  } else {
+    console.log('[Auth] 未ログイン');
+    if (typeof window._onFirebaseSignOut === 'function') {
+      window._onFirebaseSignOut();
+    }
+  }
+});
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="screen-orientation" content="portrait">
@@ -2061,6 +2114,12 @@ img.item-icon {
 
     <!-- エラー表示 -->
     <div id="auth-error" style="display:none;color:#ff6666;font-size:12px;text-align:center;line-height:1.5;"></div>
+
+    <!-- ゲスト開始 -->
+    <button id="auth-guest-btn" onclick="startAsGuest()"
+      style="background:none;border:1px solid var(--border);color:var(--text3);font-size:12px;cursor:pointer;padding:8px 20px;width:100%;font-family:'Noto Sans JP',sans-serif;">
+      ログインせずにゲストで始める
+    </button>
   </div>
 
   <!-- ログイン済みの場合: クラン名入力（新規ユーザーのみ） -->
@@ -15553,46 +15612,21 @@ async function cloudSaveState(uid) {
 // ============================================================
 //  セーブ管理（ローカルのみ）
 // ============================================================
-// セーブ：localStorageに保存
+// セーブ：localStorageに保存 + クラウド同期
 window.saveState = function() {
   localStorage.setItem('cs_state', JSON.stringify(gState));
+  // クラウド保存（ログイン中のみ、非同期・エラーは無視）
+  if (window._fbCurrentUser && window._fbFns && window._fbDb) {
+    cloudSaveState(window._fbCurrentUser.uid).catch(e => console.warn('[AutoSave]', e));
+  }
 };
 saveState = window.saveState;
 
-// Firebase コールバックは使用しない（ローカルモード）
-window._onFirebaseSignIn  = function() {};
-window._onFirebaseSignOut = function() {};
-
-// ログアウト関数（ローカルモードでは初期画面に戻る）
-function signOutUser() {
-  if (!confirm('データを初期化してタイトルに戻りますか？')) return;
-  document.getElementById('app').classList.remove('active');
-  document.getElementById('overlay').classList.add('visible');
-  _activateLocalMode();
-}
+// Firebase コールバック・ログアウトはBOOTセクションで定義
 
 // ============================================================
-//  BOOT（ローカルモード優先）
+//  BOOT
 // ============================================================
-
-// ローカルモード用の認証送信ハンドラ
-function _localAuthSubmit() {
-  if (_authTab === 'register') {
-    const name = (document.getElementById('auth-clanname')?.value||'').trim();
-    if (!name) return authShowError('クラン名を入力してください。');
-    gState = defaultState(name);
-    gState.presets[0].formation.slots = [gState.ownedUnits[0].uid];
-    giveStarterCardsForClass('warrior');
-    saveState();
-    launchApp(); // launchApp内でoverlay非表示・app表示を行う
-  } else {
-    if (loadState()) {
-      launchApp();
-    } else {
-      authShowError('セーブデータが見つかりません。「新規登録」タブで始めてください。');
-    }
-  }
-}
 
 function _setLoadingStatus(msg, pct) {
   const txt  = document.getElementById('auth-loading-text');
@@ -15601,61 +15635,174 @@ function _setLoadingStatus(msg, pct) {
   if (fill) fill.style.width = pct + '%';
 }
 
-function _activateLocalMode() {
-  console.log('[Boot] ローカルモードで起動します（Firebase不要）');
-  
-  document.getElementById('overlay').classList.add('visible');
-  // ── ローディング進捗アニメーション ──
-  _setLoadingStatus('ゲームデータを確認中...', 20);
-
-  setTimeout(() => {
-    _setLoadingStatus('セーブデータを読み込み中...', 50);
-    setTimeout(() => {
-      _setLoadingStatus('起動準備完了！', 90);
-      setTimeout(() => {
-        // auth-submit-btn をローカルモード用に差し替え
-        const btn = document.getElementById('auth-submit-btn');
-        if (btn) btn.onclick = _localAuthSubmit;
-        // Google ボタン非表示
-        const gbtn = document.getElementById('auth-google-btn');
-        if (gbtn) gbtn.style.display = 'none';
-        // パスワードリセットボタン非表示
-        const rbtn = document.getElementById('auth-reset-btn');
-        if (rbtn) rbtn.style.display = 'none';
-        // メール・パスワード入力欄を非表示
-        const emailEl = document.getElementById('auth-email');
-        const passEl  = document.getElementById('auth-password');
-        if (emailEl) emailEl.style.display = 'none';
-        if (passEl)  passEl.style.display  = 'none';
-        // "または" 区切りを非表示
-        const panels = document.querySelectorAll('#auth-panel > div');
-        panels.forEach(d => {
-          if (d.innerHTML && d.innerHTML.includes('または')) d.style.display = 'none';
-        });
-        _setLoadingStatus('完了！', 100);
-
-        setTimeout(() => {
-          // 既存セーブがあればログインタブ、なければ新規登録タブ
-          const saved = localStorage.getItem('cs_state');
-          // ローディング → 認証パネルへ切り替え
-          document.getElementById('auth-loading').style.display = 'none';
-          document.getElementById('auth-panel').style.display   = 'flex';
-          authSwitchTab(saved ? 'login' : 'register');
-        }, 300);
-      }, 400);
-    }, 400);
-  }, 300);
+function _showAuthPanel() {
+  const loadingEl = document.getElementById('auth-loading');
+  const panelEl   = document.getElementById('auth-panel');
+  if (loadingEl) loadingEl.style.display = 'none';
+  if (panelEl)   panelEl.style.display   = 'flex';
+  // UI要素をすべて表示に戻す（ローカルモードで非表示にした場合の復元）
+  const googleBtn = document.getElementById('auth-google-btn');
+  const resetBtn  = document.getElementById('auth-reset-btn');
+  const emailEl   = document.getElementById('auth-email');
+  const passEl    = document.getElementById('auth-password');
+  const orDivs    = document.querySelectorAll('#auth-panel > div');
+  if (googleBtn) googleBtn.style.display = '';
+  if (resetBtn)  resetBtn.style.display  = '';
+  if (emailEl)   emailEl.style.display   = '';
+  if (passEl)    passEl.style.display    = '';
+  orDivs.forEach(d => { if (d.innerHTML && d.innerHTML.includes('または')) d.style.display = ''; });
+  // ボタンをFirebaseモードに戻す
+  const submitBtn = document.getElementById('auth-submit-btn');
+  if (submitBtn) submitBtn.onclick = authSubmit;
+  // ゲストボタン表示
+  const guestBtn = document.getElementById('auth-guest-btn');
+  if (guestBtn) guestBtn.style.display = '';
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  // 即座にローカルモード起動（メール不要・Firebase不要）
-  _activateLocalMode();
-  // Firebase が後から読み込まれた場合の対応（オプション）
-  setTimeout(() => {
-    if (window._fbAuth) {
-      console.log('[Boot] Firebase 検出済み（ローカルモードで継続）');
+function _resetLoadingUI() {
+  const loadingEl = document.getElementById('auth-loading');
+  const panelEl   = document.getElementById('auth-panel');
+  if (loadingEl) loadingEl.style.display = '';
+  if (panelEl)   panelEl.style.display   = 'none';
+  _setLoadingStatus('起動中...', 0);
+}
+
+// ── Firebase Auth コールバック ──
+window._onFirebaseSignIn = async function(user) {
+  console.log('[Boot] Firebase SignIn:', user.uid);
+  _setLoadingStatus('アカウント確認中...', 60);
+  try {
+    // クラウドからセーブデータ読み込み試行
+    const loaded = await cloudLoadState(user.uid);
+    if (loaded) {
+      _setLoadingStatus('データ読み込み完了！', 100);
+      setTimeout(() => launchApp(), 300);
+    } else {
+      // クラウドにデータなし → 新規ユーザーパネル表示
+      _setLoadingStatus('完了！', 100);
+      setTimeout(() => {
+        document.getElementById('auth-loading').style.display = 'none';
+        document.getElementById('auth-panel').style.display   = 'none';
+        const newPanel = document.getElementById('auth-newuser-panel');
+        if (newPanel) newPanel.style.display = 'flex';
+      }, 300);
     }
-  }, 2000);
+  } catch(e) {
+    console.error('[Boot] cloudLoad error:', e);
+    // クラウド失敗時はローカルにフォールバック
+    if (loadState()) {
+      launchApp();
+    } else {
+      const newPanel = document.getElementById('auth-newuser-panel');
+      if (newPanel) newPanel.style.display = 'flex';
+      document.getElementById('auth-loading').style.display = 'none';
+    }
+  }
+};
+
+window._onFirebaseSignOut = function() {
+  console.log('[Boot] Firebase SignOut');
+};
+
+// ログアウト
+function signOutUser() {
+  if (!confirm('ログアウトしますか？\n（セーブデータはクラウドに保存されています）')) return;
+  const auth = window._fbAuth;
+  if (auth) {
+    auth.signOut().then(() => {
+      gState = null;
+      document.getElementById('app').classList.remove('active');
+      document.getElementById('overlay').classList.add('visible');
+      _resetLoadingUI();
+      // onAuthStateChanged → _onFirebaseSignOut → ローディングが終わらないので直接パネル表示
+      setTimeout(() => {
+        _setLoadingStatus('完了！', 100);
+        setTimeout(() => _showAuthPanel(), 300);
+      }, 500);
+      authSwitchTab('login');
+    });
+  } else {
+    gState = null;
+    document.getElementById('app').classList.remove('active');
+    document.getElementById('overlay').classList.add('visible');
+    _resetLoadingUI();
+    setTimeout(() => _showAuthPanel(), 800);
+  }
+}
+
+// ゲストでゲーム開始（ローカルのみ）
+function startAsGuest() {
+  if (loadState()) {
+    launchApp();
+    return;
+  }
+  const name = (document.getElementById('auth-clanname')?.value||'').trim() || 'クラン';
+  // クラン名を別途聞く
+  const input = prompt('クラン名を入力してください（1〜16文字）', 'クラン');
+  if (!input || !input.trim()) return;
+  gState = defaultState(input.trim());
+  gState.presets[0].formation.slots = [gState.ownedUnits[0].uid];
+  giveStarterCardsForClass('warrior');
+  saveState();
+  launchApp();
+}
+
+// ── 起動シーケンス ──
+document.addEventListener('DOMContentLoaded', () => {
+  _resetLoadingUI();
+  document.getElementById('overlay').classList.add('visible');
+
+  // Firebase が既にユーザーをサインイン済みかどうか確認
+  // onAuthStateChanged が最初の1回だけ確実に呼ばれるのを待つ
+  // タイムアウト付きでFirebase初期化を待つ
+  let authResolved = false;
+
+  function onAuthReady(user) {
+    if (authResolved) return;
+    authResolved = true;
+
+    if (user) {
+      // 既存ログインユーザー → データ読み込み → ゲーム起動
+      _setLoadingStatus('ログイン確認中...', 40);
+      window._onFirebaseSignIn(user);
+    } else {
+      // 未ログイン → 認証パネル表示
+      _setLoadingStatus('完了！', 100);
+      setTimeout(() => {
+        _showAuthPanel();
+        authSwitchTab(localStorage.getItem('cs_state') ? 'login' : 'register');
+      }, 300);
+    }
+  }
+
+  if (window._fbAuth) {
+    _setLoadingStatus('Firebase接続中...', 20);
+    // onAuthStateChanged は初回サインイン状態確認時に必ず1回呼ばれる
+    const unsubscribe = window._fbAuth.onAuthStateChanged((user) => {
+      unsubscribe(); // 初回のみ使用
+      _setLoadingStatus('接続完了', 50);
+      onAuthReady(user);
+    });
+    // 5秒でタイムアウト → ゲストモードへ
+    setTimeout(() => {
+      if (!authResolved) {
+        console.warn('[Boot] Firebase timeout → fallback');
+        authResolved = true;
+        _setLoadingStatus('完了！', 100);
+        setTimeout(() => {
+          _showAuthPanel();
+          authSwitchTab(localStorage.getItem('cs_state') ? 'login' : 'register');
+        }, 300);
+      }
+    }, 5000);
+  } else {
+    // Firebase未定義（フォールバック）
+    _setLoadingStatus('完了！', 100);
+    setTimeout(() => {
+      _showAuthPanel();
+      authSwitchTab(localStorage.getItem('cs_state') ? 'login' : 'register');
+    }, 600);
+  }
 });
 </script>
 </body>
