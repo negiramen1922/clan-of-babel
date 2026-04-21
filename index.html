@@ -2275,6 +2275,7 @@ img.item-icon {
             <option value="vanguard">ヴァンガード</option>
             <option value="archer">アーチャー</option>
             <option value="priest">プリースト</option>
+            <option value="assassin">アサシン</option>
           </select>
           <button id="sell-mode-btn" class="btn btn-outline btn-sm" onclick="toggleSellMode()">${itemIconHTML('gold','14px')} 売却</button>
         </div>
@@ -2295,8 +2296,9 @@ img.item-icon {
             <option value="warrior">ウォリアー</option>
             <option value="vanguard">ヴァンガード</option>
             <option value="archer">アーチャー</option>
-          </select>
             <option value="priest">プリースト</option>
+            <option value="assassin">アサシン</option>
+          </select>
           <select id="card-list-filter-type" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:12px;padding:4px 8px;flex:1;min-width:80px">
             <option value="all">全種別</option>
             <option value="attack">攻撃</option>
@@ -3435,6 +3437,33 @@ const CLASS_DATA = {
     ],
   },
 
+  assassin: {
+    name: 'アサシン',
+    icon: '🗡️',
+    role: 'スカウト',
+    baseStats: { atk:950, hp:2000, mp:1800, pres:5, mres:5, bres:8, lres:0, spd:118, cri:22, cridam:180 },
+    baseSearch:  48,
+    baseStealth: 45,
+    baseHate:    150,
+    nightBonus: { atkUp:20, criUp:15, spdUp:15, nightPwUp:15 },
+    skillPool: [
+      { id:'as_dagger',  name:'ダガースラッシュ',   type:'red',    target:'single',  power:1.2, cd:3, desc:'物理Pw1.2。夜戦中Pw+0.5追加', nightPwBonus:0.5 },
+      { id:'as_smoke',   name:'煙玉',               type:'buff',   target:'self',    power:0,   cd:5, desc:'隠密+60%・ヘイト-400・次被ダメ-30%(1回)', effect:{type:'stealth_and_hate',stealthUp:60,hateDown:400,reduceOnce:30} },
+      { id:'as_shadow',  name:'影潜り',             type:'opening',target:'single',  power:3.0, cd:0, desc:'奇襲成功:Pw3.0+ATK+25%・CRI+15%(3T)。通常時Pw1.0', effect:{type:'surprise_burst',normalPw:1.0,surprisePw:3.0} },
+      { id:'as_blade',   name:'暗殺者の短剣',       type:'equip',  target:'self',    power:0,   cd:0, desc:'通常攻撃Pw+0.2・CRI+8%。夜戦中Pw+0.4・BLACK追加' },
+      { id:'as_back',    name:'バックスタブ',       type:'red',    target:'single',  power:2.0, cd:5, desc:'Pw2.0。CC中の敵に強制会心+Pw+0.8', ccBonus:0.8 },
+      { id:'as_poison',  name:'毒刃',               type:'black',  target:'single',  power:1.6, cd:4, desc:'BLACKPw1.6+猛毒(3T・ATK15%/T)。夜戦中Pw+0.5', nightPwBonus:0.5 },
+      { id:'as_triple',  name:'連続斬り',           type:'red',    target:'single',  power:0.9, cd:6, desc:'Pw0.9×3回。夜戦中各+0.3', hits:3, nightPwBonus:0.3 },
+      { id:'as_vital',   name:'急所突き',           type:'red',    target:'single',  power:2.2, cd:7, desc:'Pw2.2+CRIDAM+30%。夜戦中強制会心', criDamBonus:30, nightForceCrit:true },
+    ],
+    ultimates: [
+      { id:'asu_hunt', name:'影狩り（シャドウハント）',
+        effect:'最もHPの低い敵に🔴Pw4.0(強制会心)+💜Pw2.0。撃破時即再行動(次の最低HP敵を自動追跡)。連続撃破でATK+10%スタック。夜戦中🔴Pw+2.0追加',
+        power:4.0, type:'red_black', target:'lowest_hp', forceCrit:true,
+        blackPw:2.0, reattackOnKill:true, killAtkStack:10, nightRedBonus:2.0 },
+    ],
+  },
+
   archer: {
     name: 'アーチャー',
     icon: '🏹',
@@ -4330,6 +4359,227 @@ const CARDS = {
     lvBonus:[1.0,1.2,1.4,1.7,2.0],
     desc:'致死ダメをHP1で耐える(1戦1回)。発動時、全員HP回復(ATKの200%)+MP回復(ATKの100%)',
     descLv:(lv)=>{const m=[1.0,1.2,1.4,1.7,2.0][lv-1];return`致死ダメ1で耐える(1回)→全員HP回復(ATK×${(2.0*m).toFixed(1)})+MP回復(ATK×${(1.0*m).toFixed(1)})`;},
+  },
+
+  // ===== アサシン ★1カード =====
+
+  'as_dagger_slash': {
+    id:'as_dagger_slash', name:'ダガースラッシュ', class:'assassin', role:'attacker',
+    type:'attack', rarity:1, cd:3, target:'single',
+    effect:{ type:'damage', power:1.2, damageType:'red', nightPwBonus:0.5 },
+    lvBonus:[1.0,1.2,1.4,1.7,2.0],
+    desc:'🔴単体 Pw1.2。夜戦中Pw+0.5追加',
+    descLv:(lv)=>{const m=[1.0,1.2,1.4,1.7,2.0][lv-1];return`🔴単体 Pw${(1.2*m).toFixed(1)}。夜戦Pw+${(0.5*m).toFixed(1)}`;},
+  },
+
+  'as_smoke_bomb': {
+    id:'as_smoke_bomb', name:'煙玉', class:'assassin', role:'attacker',
+    type:'support', rarity:1, cd:5, target:'self',
+    effect:{ type:'stealth_and_hate', stealthUp:60, hateDown:400, reduceOnce:30 },
+    lvBonus:[1.0,1.2,1.4,1.7,2.0],
+    desc:'隠密値+60%・ヘイト-400・次被ダメ-30%(1回)',
+    descLv:(lv)=>{const m=[1.0,1.2,1.4,1.7,2.0][lv-1];return`隠密+${Math.round(60*m)}%・ヘイト-${Math.round(400*m)}・次被ダメ-${Math.round(30*m)}%(1回)`;},
+  },
+
+  'as_shadow_strike': {
+    id:'as_shadow_strike', name:'影潜り', class:'assassin', role:'attacker',
+    type:'opening', rarity:1, target:'single',
+    effect:{ type:'surprise_burst', normalPw:1.0, surprisePw:3.0,
+      surpriseBuff:[ { type:'atk_up', val:25, turns:3 }, { type:'cri_up', val:15, turns:3 } ] },
+    lvBonus:[1.0,1.2,1.4,1.7,2.0],
+    desc:'開幕：奇襲成功時Pw3.0+ATK+25%・CRI+15%(3T)。通常時Pw1.0',
+    descLv:(lv)=>{const m=[1.0,1.2,1.4,1.7,2.0][lv-1];return`奇襲Pw${(3.0*m).toFixed(1)}・ATK+${Math.round(25*m)}%・CRI+${Math.round(15*m)}%(3T)｜通常Pw${(1.0*m).toFixed(1)}`;},
+  },
+
+  'as_equip_assassin_dagger': {
+    id:'as_equip_assassin_dagger', name:'暗殺者の短剣', class:'assassin', role:'attacker',
+    type:'equip', rarity:1,
+    effect:{ type:'normalAttackMod', powerBonus:0.2, criBonus:8, nightPwBonus:0.4, nightBlackAdd:{ condition:'hp50', power:0.3 } },
+    lvBonus:[1.0,1.2,1.4,1.7,2.0],
+    desc:'通常攻撃Pw+0.2・CRI+8%。夜戦中Pw+0.4・BLACK追加(HP50%以下の敵にPw0.3)',
+    descLv:(lv)=>{const m=[1.0,1.2,1.4,1.7,2.0][lv-1];return`Pw+${(0.2*m).toFixed(2)}・CRI+${Math.round(8*m)}%。夜戦Pw+${(0.4*m).toFixed(1)}+BLACK Pw${(0.3*m).toFixed(1)}`;},
+  },
+
+  // ===== アサシン ★2カード =====
+
+  'as_backstab': {
+    id:'as_backstab', name:'バックスタブ', class:'assassin', role:'attacker',
+    type:'attack', rarity:2, cd:5, target:'single',
+    effect:{ type:'damage', power:2.0, damageType:'red', ccForceCrit:true, ccPwBonus:0.8 },
+    lvBonus:[1.0,1.2,1.4,1.7,2.0],
+    desc:'🔴単体 Pw2.0。CC中の敵に強制会心+Pw+0.8',
+    descLv:(lv)=>{const m=[1.0,1.2,1.4,1.7,2.0][lv-1];return`🔴単体 Pw${(2.0*m).toFixed(1)}。CC中→強制会心+Pw+${(0.8*m).toFixed(1)}`;},
+  },
+
+  'as_poison_blade': {
+    id:'as_poison_blade', name:'毒刃', class:'assassin', role:'attacker',
+    type:'attack', rarity:2, cd:4, target:'single',
+    effect:{ type:'damage', power:1.6, damageType:'black',
+      debuff:{ type:'lethal_poison', val:15, turns:3 }, nightPwBonus:0.5 },
+    lvBonus:[1.0,1.2,1.4,1.7,2.0],
+    desc:'💜単体 Pw1.6+猛毒(3T・ATK15%/T)。夜戦中Pw+0.5',
+    descLv:(lv)=>{const m=[1.0,1.2,1.4,1.7,2.0][lv-1];return`💜Pw${(1.6*m).toFixed(1)}+猛毒(3T・ATK${Math.round(15*m)}%/T)。夜戦Pw+${(0.5*m).toFixed(1)}`;},
+  },
+
+  'as_triple_slash': {
+    id:'as_triple_slash', name:'連続斬り', class:'assassin', role:'attacker',
+    type:'attack', rarity:2, cd:6, target:'single', hits:3,
+    effect:{ type:'damage', power:0.9, damageType:'red', nightPwBonus:0.3 },
+    lvBonus:[1.0,1.2,1.4,1.7,2.0],
+    desc:'🔴単体×3回 Pw0.9(各会心判定)。夜戦中各Pw+0.3',
+    descLv:(lv)=>{const m=[1.0,1.2,1.4,1.7,2.0][lv-1];return`🔴×3回 Pw${(0.9*m).toFixed(1)}×3。夜戦各+Pw${(0.3*m).toFixed(1)}`;},
+  },
+
+  'as_vital_strike': {
+    id:'as_vital_strike', name:'急所突き', class:'assassin', role:'attacker',
+    type:'attack', rarity:2, cd:7, target:'single',
+    effect:{ type:'damage', power:2.2, damageType:'red', criDamBonus:30, nightForceCrit:true },
+    lvBonus:[1.0,1.2,1.4,1.7,2.0],
+    desc:'🔴単体 Pw2.2+CRIDAM+30%。夜戦中強制会心',
+    descLv:(lv)=>{const m=[1.0,1.2,1.4,1.7,2.0][lv-1];return`🔴Pw${(2.2*m).toFixed(1)}+CRIDAM+${Math.round(30*m)}%。夜戦強制会心`;},
+  },
+
+  'as_feint': {
+    id:'as_feint', name:'陽動', class:'assassin', role:'attacker',
+    type:'support', rarity:2, cd:6, target:'self',
+    effect:{ type:'multi_buff', buffs:[
+      { type:'hate_min', val:3, turns:3 },
+      { type:'damage_reduce_once', val:50 },
+      { type:'stealth_up', val:30, turns:3 },
+    ]},
+    lvBonus:[1.0,1.2,1.4,1.7,2.0],
+    desc:'ヘイト最低値(3T)・次被ダメ-50%(1回)・隠密+30%(3T)',
+    descLv:(lv)=>{const m=[1.0,1.2,1.4,1.7,2.0][lv-1];return`ヘイト最低(3T)・次被ダメ-${Math.round(50*m)}%(1回)・隠密+${Math.round(30*m)}%(3T)`;},
+  },
+
+  'as_shadow_bind': {
+    id:'as_shadow_bind', name:'影縫い', class:'assassin', role:'attacker',
+    type:'attack', rarity:2, cd:8, target:'single',
+    effect:{ type:'damage', power:1.5, damageType:'white',
+      debuff:{ type:'bind', val:1, turns:2 },
+      extraDebuff:{ type:'pres_down', val:-15, turns:2 },
+      extraDebuff2:{ type:'mres_down', val:-12, turns:2 },
+    },
+    lvBonus:[1.0,1.2,1.4,1.7,2.0],
+    desc:'🤍MPにPw1.5+【束縛】(2T)・PRES-15%・WHITE耐性-12%(2T)',
+    descLv:(lv)=>{const m=[1.0,1.2,1.4,1.7,2.0][lv-1];return`🤍Pw${(1.5*m).toFixed(1)}+束縛(2T)・PRES-${Math.round(15*m)}%・WHITE-${Math.round(12*m)}%(2T)`;},
+  },
+
+  'as_passive_night_instinct': {
+    id:'as_passive_night_instinct', name:'暗殺者の本能', class:'assassin', role:'attacker',
+    type:'passive', rarity:2,
+    effect:{ trigger:'night_battle', action:{ type:'night_passive_buff', criUp:20, damageBonusPer:15, bresUp:10 }},
+    lvBonus:[1.0,1.2,1.4,1.7,2.0],
+    desc:'夜戦中CRI+20%・与ダメ+15%・BLACK耐性+10%(常時発動)',
+    descLv:(lv)=>{const m=[1.0,1.2,1.4,1.7,2.0][lv-1];return`夜戦中CRI+${Math.round(20*m)}%・与ダメ+${Math.round(15*m)}%・BLACK耐性+${Math.round(10*m)}%`;},
+  },
+
+  'as_passive_shadow_step': {
+    id:'as_passive_shadow_step', name:'影の足取り', class:'assassin', role:'attacker',
+    type:'passive', rarity:2,
+    effect:{ trigger:'always_lowest_hate', action:{ type:'lowest_hate_bonus', damageTakeReduce:25, evasionUp:15, nightExtraReduce:10 }},
+    lvBonus:[1.0,1.2,1.4,1.7,2.0],
+    desc:'ヘイト最低値の時、被ダメ-25%・回避+15%(常時)。夜戦中さらに-10%',
+    descLv:(lv)=>{const m=[1.0,1.2,1.4,1.7,2.0][lv-1];return`ヘイト最低時 被ダメ-${Math.round(25*m)}%・回避+${Math.round(15*m)}%。夜戦追加-${Math.round(10*m)}%`;},
+  },
+
+  // ===== アサシン ★3カード =====
+
+  'as_abyss_stab': {
+    id:'as_abyss_stab', name:'奈落の一刺し', class:'assassin', role:'attacker',
+    type:'attack', rarity:3, cd:8, target:'single',
+    effect:{ type:'damage', power:3.5, damageType:'red', forceCrit:true, nightPwBonus:2.0 },
+    lvBonus:[1.0,1.2,1.4,1.7,2.0],
+    desc:'🔴単体 Pw3.5 強制会心。夜戦中Pw+2.0(計Pw5.5)',
+    descLv:(lv)=>{const m=[1.0,1.2,1.4,1.7,2.0][lv-1];return`🔴Pw${(3.5*m).toFixed(1)} 強制会心。夜戦Pw+${(2.0*m).toFixed(1)}(計${(5.5*m).toFixed(1)})`;},
+  },
+
+  'as_shadow_clone': {
+    id:'as_shadow_clone', name:'影分身斬り', class:'assassin', role:'attacker',
+    type:'attack', rarity:3, cd:7, target:'single', hits:2,
+    effect:{ type:'damage', power:2.0, damageType:'red', nightPwBonus:0.8 },
+    lvBonus:[1.0,1.2,1.4,1.7,2.0],
+    desc:'🔴単体×2回 Pw2.0(各会心判定・同一ターゲット)。夜戦中各Pw+0.8',
+    descLv:(lv)=>{const m=[1.0,1.2,1.4,1.7,2.0][lv-1];return`🔴×2回 Pw${(2.0*m).toFixed(1)}×2。夜戦各Pw+${(0.8*m).toFixed(1)}`;},
+  },
+
+  'as_death_mark': {
+    id:'as_death_mark', name:'デスマーク', class:'assassin', role:'attacker',
+    type:'attack', rarity:3, cd:6, target:'single',
+    effect:{ type:'damage', power:1.5, damageType:'red',
+      debuff:{ type:'death_mark', val:5, turns:5, criDamBonus:40, mresDown:-15, bresDown:-10 },
+    },
+    lvBonus:[1.0,1.2,1.4,1.7,2.0],
+    desc:'🔴Pw1.5+【死の刻印】(5T)。刻印中:会心ダメ+40%・WHITE耐性-15%・BLACK耐性-10%',
+    descLv:(lv)=>{const m=[1.0,1.2,1.4,1.7,2.0][lv-1];return`🔴Pw${(1.5*m).toFixed(1)}+死の刻印(5T)。会心ダメ+${Math.round(40*m)}%・WHITE-${Math.round(15*m)}%・BLACK-${Math.round(10*m)}%`;},
+  },
+
+  'as_night_dance': {
+    id:'as_night_dance', name:'夜霧乱舞', class:'assassin', role:'attacker',
+    type:'attack', rarity:3, cd:9, target:'random', hits:4,
+    effect:{ type:'damage', power:1.3, damageType:'red', nightPwBonus:0.5, nightBlackAdd:{ power:0.5 } },
+    lvBonus:[1.0,1.2,1.4,1.7,2.0],
+    desc:'🔴ランダム×4回 Pw1.3×4。夜戦中各Pw+0.5+💜BLACK Pw0.5追加(各ヒット)',
+    descLv:(lv)=>{const m=[1.0,1.2,1.4,1.7,2.0][lv-1];return`🔴ランダム×4 Pw${(1.3*m).toFixed(1)}×4。夜戦各+Pw${(0.5*m).toFixed(1)}+💜Pw${(0.5*m).toFixed(1)}`;},
+  },
+
+  'as_instant_kill': {
+    id:'as_instant_kill', name:'瞬殺', class:'assassin', role:'attacker',
+    type:'attack', rarity:3, cd:10, target:'single',
+    effect:{ type:'damage', power:4.5, damageType:'black', nightForceCrit:true,
+      instantKill:{ condition:'hp25', dayRate:30, nightRate:50 },
+    },
+    lvBonus:[1.0,1.2,1.4,1.7,2.0],
+    desc:'💜Pw4.5 夜戦強制会心。HP25%以下で即死判定(昼30%・夜50%)',
+    descLv:(lv)=>{const m=[1.0,1.2,1.4,1.7,2.0][lv-1];return`💜Pw${(4.5*m).toFixed(1)} 即死:昼${Math.round(30*m)}%・夜${Math.min(100,Math.round(50*m))}%`;},
+  },
+
+  'as_opening_dark_ambush': {
+    id:'as_opening_dark_ambush', name:'闇夜の先手', class:'assassin', role:'attacker',
+    type:'opening', rarity:3, target:'single',
+    effect:{ type:'surprise_burst', normalPw:1.5, surprisePw:4.5, surpriseDamageType:'red',
+      surpriseBlackPw:2.0, surpriseDebuff:{ type:'lethal_poison', val:15, turns:5 },
+    },
+    lvBonus:[1.0,1.2,1.4,1.7,2.0],
+    desc:'開幕：奇襲成功時🔴Pw4.5+💜Pw2.0+猛毒(5T)。通常時🔴Pw1.5のみ',
+    descLv:(lv)=>{const m=[1.0,1.2,1.4,1.7,2.0][lv-1];return`奇襲🔴Pw${(4.5*m).toFixed(1)}+💜Pw${(2.0*m).toFixed(1)}+猛毒(5T)｜通常🔴Pw${(1.5*m).toFixed(1)}`;},
+  },
+
+  'as_opening_night_order': {
+    id:'as_opening_night_order', name:'夜討ちの号令', class:'assassin', role:'attacker',
+    type:'opening', rarity:3, target:'self',
+    effect:{ type:'night_auto_rebuff', nightBuff:[
+      { type:'atk_up',     val:40, turns:99 },
+      { type:'cri_up',     val:25, turns:99 },
+      { type:'spd_up',     val:20, turns:99 },
+      { type:'mres_up',    val:15, turns:99 },
+      { type:'stealth_up', val:30, turns:99 },
+    ]},
+    lvBonus:[1.0,1.2,1.4,1.7,2.0],
+    desc:'夜戦移行時に自動再発動：ATK+40%・CRI+25%・SPD+20・WHITE耐性+15%・隠密+30%(夜戦中永続)',
+    descLv:(lv)=>{const m=[1.0,1.2,1.4,1.7,2.0][lv-1];return`夜戦：ATK+${Math.round(40*m)}%・CRI+${Math.round(25*m)}%・SPD+${Math.round(20*m)}・WHITE耐性+${Math.round(15*m)}%`;},
+  },
+
+  'as_equip_shadow_blade': {
+    id:'as_equip_shadow_blade', name:'影の刃', class:'assassin', role:'attacker',
+    type:'equip', rarity:3,
+    effect:{ type:'normalAttackMod', powerBonus:0.4, criBonus:12,
+      nightBlackAdd:{ power:0.6 }, nightOnHitDebuff:{ type:'mres_down', val:-5, turns:2, maxStack:3 },
+    },
+    lvBonus:[1.0,1.2,1.4,1.7,2.0],
+    desc:'通常攻撃Pw+0.4・CRI+12%。夜戦中BLACK Pw0.6追加+命中時WHITE耐性-5%(2T・最大3スタック)',
+    descLv:(lv)=>{const m=[1.0,1.2,1.4,1.7,2.0][lv-1];return`Pw+${(0.4*m).toFixed(2)}・CRI+${Math.round(12*m)}%。夜戦BLACK+Pw${(0.6*m).toFixed(1)}・WHITE-${Math.round(5*m)}%(スタック3)`;},
+  },
+
+  'as_passive_blood_thirst': {
+    id:'as_passive_blood_thirst', name:'血の渇望', class:'assassin', role:'attacker',
+    type:'passive', rarity:3,
+    effect:{ trigger:'on_crit', action:{ type:'crit_spd_stack',
+      spdPerStack:5, dayMaxStacks:5, nightMaxStacks:10, hateDownOnCrit:100,
+    }},
+    lvBonus:[1.0,1.2,1.4,1.7,2.0],
+    desc:'会心命中のたびSPD+5スタック(昼MAX5・夜MAX10)。会心命中時ヘイト-100',
+    descLv:(lv)=>{const m=[1.0,1.2,1.4,1.7,2.0][lv-1];return`会心のたびSPD+${Math.round(5*m)}/スタック(昼${Math.round(5*m)}・夜${Math.round(10*m)})。ヘイト-${Math.round(100*m)}`;},
   },
 
 };
@@ -5668,7 +5918,7 @@ function classIconHTML(classId, size='48px', style='') {
   return `<span style="font-size:${size};line-height:1;${style}">${cls?.icon||'⚔️'}</span>`;
 }
 
-const GACHA_POOL = ['warrior','vanguard','archer','priest'];
+const GACHA_POOL = ['warrior','vanguard','archer','priest','assassin'];
 
 // ============================================================
 //  初心者ミッション（永続・リセットなし・カード収集チュートリアル）
@@ -11347,10 +11597,11 @@ function nextStage() {
 
 // 各クラスの雇用コスト定義
 const RECRUIT_CONFIG = {
-  warrior: { name:'ウォリアー', goldCost:500,  etherCost:0,   coinCost:0,   desc:'ATK特化の近接アタッカー' },
-  vanguard:{ name:'ヴァンガード',goldCost:800,  etherCost:0,   coinCost:0,   desc:'高HP・高防御のタンク' },
-  archer:  { name:'アーチャー', goldCost:600,  etherCost:0,   coinCost:0,   desc:'高SPD・会心の遠距離アタッカー' },
-  priest:  { name:'プリースト', goldCost:700,  etherCost:20,  coinCost:0,   desc:'HP/MP回復・デバフ解除のヒーラー' },
+  warrior:  { name:'ウォリアー',  goldCost:500,  etherCost:0,   coinCost:0,   desc:'ATK特化の近接アタッカー' },
+  vanguard: { name:'ヴァンガード',goldCost:800,  etherCost:0,   coinCost:0,   desc:'高HP・高防御のタンク' },
+  archer:   { name:'アーチャー',  goldCost:600,  etherCost:0,   coinCost:0,   desc:'高SPD・会心の遠距離アタッカー' },
+  priest:   { name:'プリースト',  goldCost:700,  etherCost:20,  coinCost:0,   desc:'HP/MP回復・デバフ解除のヒーラー' },
+  assassin: { name:'アサシン',    goldCost:900,  etherCost:30,  coinCost:0,   desc:'最速・最高会心。昼は潜伏、夜は無双の近接アタッカー' },
 };
 
 function openRecruitPanel() {
@@ -11627,6 +11878,7 @@ function showCardGachaResult(results) {
     const cardClass = card.id?.startsWith('warrior') ? 'warrior'
                     : card.id?.startsWith('vg_')     ? 'vanguard'
                     : card.id?.startsWith('ar_')     ? 'archer'
+                    : card.id?.startsWith('as_')     ? 'assassin'
                     : null;
     const classIconEl = cardClass ? classIconHTML(cardClass, '22px', 'border-radius:4px') : '';
 
@@ -11760,7 +12012,7 @@ function showCharUnlock(classId) {
   `;
   modal.style.display = 'flex';
   // 背景をクラスカラーで色付け
-  const colMap = { warrior:'rgba(224,122,58,0.18)', vanguard:'rgba(76,175,110,0.18)', archer:'rgba(74,127,255,0.18)', priest:'rgba(200,180,255,0.18)' };
+  const colMap = { warrior:'rgba(224,122,58,0.18)', vanguard:'rgba(76,175,110,0.18)', archer:'rgba(74,127,255,0.18)', priest:'rgba(200,180,255,0.18)', assassin:'rgba(155,107,222,0.25)' };
   document.getElementById('char-unlock-bg').style.background =
     `linear-gradient(160deg,${colMap[classId]||'rgba(201,168,76,0.18)'},rgba(15,20,35,0.9))`;
 }
@@ -11812,6 +12064,18 @@ function checkBeginnerMissions() {
     giveStarterCardsForClass('priest'); // ★1カード付与
     saveState();
     setTimeout(() => showCharUnlock('priest'), 1200);
+  }
+
+  // エリア3クリアでアサシン獲得（a3s1 = エリア3ステージ1）
+  if (!gState.beginnerMissions.assassinGiven && cleared['a3s1']) {
+    gState.beginnerMissions.assassinGiven = true;
+    const uid = 'u_' + Date.now() + '_as';
+    const as = makeUnit('assassin', uid);
+    gState.ownedUnits.push(as);
+    gState.unitProgress[uid] = { level:1, exp:0 };
+    giveStarterCardsForClass('assassin'); // ★1カード付与
+    saveState();
+    setTimeout(() => showCharUnlock('assassin'), 1600);
   }
 }
 
@@ -14939,6 +15203,7 @@ function renderCardListTab() {
                   : card.id?.startsWith('vg_')     ? 'vanguard'
                   : card.id?.startsWith('ar_')     ? 'archer'
                   : card.id?.startsWith('pr_')     ? 'priest'
+                  : card.id?.startsWith('as_')     ? 'assassin'
                   : null;
     const cls = classId ? CLASS_DATA[classId] : null;
     return { ...card, classId, className: cls?.name || '共通' };
@@ -15404,40 +15669,66 @@ async function signOutUser() {
 }
 
 // ============================================================
-//  BOOT
+//  BOOT（ローカルモード優先）
 // ============================================================
 
-document.addEventListener('DOMContentLoaded', () => {
-  // Firebase が初期化されるまで少し待つ
-  // onAuthStateChanged (firebase module) が状態を判定して_onFirebaseSignIn/_onFirebaseSignOutを呼ぶ
-  // フォールバック: Firebaseが読み込めなかった場合は従来のlocalStorage起動
-  setTimeout(() => {
-    if (!window._fbAuth) {
-      // Firebase未ロード → ローカルモードで起動
-      console.warn('[Boot] Firebase unavailable, local mode');
-      document.getElementById('auth-loading').style.display = 'none';
-      document.getElementById('auth-panel').style.display = 'flex';
-      // submit を localStorageモードに
-      document.getElementById('auth-submit-btn').onclick = () => {
-        if (_authTab === 'register') {
-          const name = (document.getElementById('auth-clanname')?.value||'').trim();
-          if (!name) return authShowError('クラン名を入力してください。');
-          gState = defaultState(name);
-          gState.presets[0].formation.slots = [gState.ownedUnits[0].uid];
-          giveStarterCardsForClass('warrior');
-          saveState();
-          launchApp();
-        } else {
-          if (loadState()) {
-            launchApp();
-          } else {
-            authShowError('セーブデータが見つかりません。新規登録してください。');
-          }
-        }
-      };
-      document.getElementById('auth-google-btn').style.display = 'none';
+// ローカルモード用の認証送信ハンドラ
+function _localAuthSubmit() {
+  if (_authTab === 'register') {
+    const name = (document.getElementById('auth-clanname')?.value||'').trim();
+    if (!name) return authShowError('クラン名を入力してください。');
+    gState = defaultState(name);
+    gState.presets[0].formation.slots = [gState.ownedUnits[0].uid];
+    giveStarterCardsForClass('warrior');
+    saveState();
+    launchApp(); // launchApp内でoverlay非表示・app表示を行う
+  } else {
+    if (loadState()) {
+      launchApp();
+    } else {
+      authShowError('セーブデータが見つかりません。「新規登録」タブで始めてください。');
     }
-  }, 3000); // 3秒でFallback判定
+  }
+}
+
+function _activateLocalMode() {
+  console.warn('[Boot] ローカルモードで起動します（Firebase不要）');
+  // auth-submit-btn をローカルモード用に差し替え
+  const btn = document.getElementById('auth-submit-btn');
+  if (btn) btn.onclick = _localAuthSubmit;
+  // Google ボタン非表示
+  const gbtn = document.getElementById('auth-google-btn');
+  if (gbtn) gbtn.style.display = 'none';
+  // パスワードリセットボタン非表示
+  const rbtn = document.getElementById('auth-reset-btn');
+  if (rbtn) rbtn.style.display = 'none';
+  // メール・パスワード入力欄を非表示
+  const emailEl = document.getElementById('auth-email');
+  const passEl  = document.getElementById('auth-password');
+  if (emailEl) emailEl.style.display = 'none';
+  if (passEl)  passEl.style.display  = 'none';
+  // "または" 区切りを非表示（メール入力の上のdivider）
+  const panels = document.querySelectorAll('#auth-panel > div');
+  panels.forEach(d => {
+    if (d.innerHTML && d.innerHTML.includes('または')) d.style.display = 'none';
+  });
+  // ローディング → 認証パネルへ切り替え
+  document.getElementById('auth-loading').style.display = 'none';
+  document.getElementById('auth-panel').style.display   = 'flex';
+  // 既存セーブがあればログインタブ、なければ新規登録タブ
+  const saved = localStorage.getItem('clan_saga_state');
+  authSwitchTab(saved ? 'login' : 'register');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // 即座にローカルモード起動（メール不要・Firebase不要）
+  _activateLocalMode();
+  // Firebase が後から読み込まれた場合の対応（オプション）
+  setTimeout(() => {
+    if (window._fbAuth) {
+      console.log('[Boot] Firebase 検出済み（ローカルモードで継続）');
+    }
+  }, 2000);
 });
 </script>
 </body>
