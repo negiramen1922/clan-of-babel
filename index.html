@@ -2,6 +2,17 @@
 <html lang="ja">
 <head>
 <!-- Google tag (gtag.js) -->
+<script>
+// 古いService Workerを即座に削除（旧Firebase版の残骸を除去）
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function(registrations) {
+    for (let reg of registrations) {
+      reg.unregister();
+      console.log('[SW] Unregistered:', reg.scope);
+    }
+  });
+}
+</script>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-LJHYV9VBCY"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -15603,12 +15614,6 @@ function _activateLocalMode() {
   console.log('[Boot] ローカルモードで起動します（Firebase不要）');
   
   document.getElementById('overlay').classList.add('visible');
-  // ── auth-loading を初期状態に戻す（2回目以降の呼び出し対策）──
-  const loadingEl = document.getElementById('auth-loading');
-  const panelEl   = document.getElementById('auth-panel');
-  if (loadingEl) loadingEl.style.display = '';
-  if (panelEl)   panelEl.style.display   = 'none';
-  _setLoadingStatus('', 0); // バーをリセット
   // ── ローディング進捗アニメーション ──
   _setLoadingStatus('ゲームデータを確認中...', 20);
 
